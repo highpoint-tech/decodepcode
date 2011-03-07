@@ -122,6 +122,7 @@ public class ProjectReader implements PeopleToolsObject
 				FileWriter fw = new FileWriter(pcodeFile);
 				fw.write(n.getTextContent());
 				fw.close();
+				Controller.countPPC++;
 				if (lastUpdOprid != null && timeStamp != null)
 				{
 					File lastUpdFile = mapper.getFile(this, "last_update");
@@ -143,6 +144,7 @@ public class ProjectReader implements PeopleToolsObject
 				FileWriter fw = new FileWriter(pcodeFile);
 				fw.write(n.getTextContent());
 				fw.close();
+				Controller.countSQL++;
 				if (lastUpdOprid != null && timeStamp != null)
 				{
 					File lastUpdFile = mapper.getFileForSQL(sqlRecordName, "last_update");
@@ -221,6 +223,7 @@ public class ProjectReader implements PeopleToolsObject
 				File dir = new File(".", projName);
 				dir.mkdir();
 				p.readProject( new File(xmlFile), new DirTreePTmapper(dir));
+				Controller.writeStats();
 			}
 			else
 			{

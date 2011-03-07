@@ -53,6 +53,7 @@ public class Controller {
 	static String dbowner;
 	static boolean writePPC = false;
 	static boolean reverseEngineer= false; 
+	static long countPPC=0, countSQL= 0;
 	
 	static Properties props;
 	static
@@ -110,6 +111,7 @@ public class Controller {
 		{
 			processor.process(new JDBCPeopleCodeContainer(dbconn, dbowner, rs));
 			logger.info("Completed JDBCPeopleCodeContainer" );
+			countPPC++;
 		}
 		dbconn.close();
 	}
@@ -139,7 +141,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			PrintWriter pw = new PrintWriter(infoFile);
 			pw.println(rs.getString("LASTUPDOPRID"));
 			pw.println(ProjectReader.df2.format(rs.getTimestamp("LASTUPDDTTM")));
-			pw.close();			
+			pw.close();
+			countSQL++;
 		}
 	}
 
@@ -363,6 +366,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		logger.info("Finished writing .pcode files");		
 	}	
 	
+	static void writeStats()
+	{
+		System.out.println("Ready; processed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)");		
+	}
 	/**
 	 * Run from command line:
 	 *  Arguments: project name, or 'since' + date (in yyyy/MM/dd format), or 'since-days' + #days, or 'custom'"
@@ -380,6 +387,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				java.sql.Timestamp d = new java.sql.Timestamp(time.getTime());
 				writeDecodedRecentPPCtoDirectoryTree(d, dir);
 				writeSQLsinceDateToFile( d, dir);
+				writeStats();
 				return;
 			}
 
@@ -390,6 +398,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				java.sql.Timestamp d = new java.sql.Timestamp(time.getTime() - 24 * 60 * 60 * 1000 * days);
 				writeDecodedRecentPPCtoDirectoryTree(d, dir);
 				writeSQLsinceDateToFile( d, dir);
+				writeStats();
 				return;
 			}
 			
@@ -397,18 +406,20 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			{
 				writeCustomizedPPCtoDirectoryTree(dir);
 				writeCustomSQLtoFile( dir);
+				writeStats();
 				return;				
 			}
 
 			if (a.length == 1)
 			{
 				writeProjectToDirectoryTree(a[0], dir);
+				writeStats();
 				return;
 			}
 			
 			System.err.println("Arguments: project name, or 'since' + date (in yyyy/MM/dd format), or 'since-days' + #days, or 'custom'");
 			//writeAllPPPCtoDirectoryTree(dir);
-			//writeAllPPCtoDirectoryTree(new File("c:\\projects\\sandbox\\peoplecode\\CRMERSDV"));
+			//writeAllPPCtoDirectoryTree(new File("c:\\projects\\sandbox\\peoplecode\\HRDEV"));
 
 		} catch (Exception e) {
 			logger.severe(e.getMessage());
@@ -422,7 +433,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 //			" pc ,dbo.PSPACKAGEDEFN pk  where pk.PACKAGEROOT  = 'BO_SEARCH'    and pk.PACKAGEID    = pc.OBJECTVALUE1    and pc.OBJECTVALUE1 = pk.PACKAGEROOT ";
 			//" where OBJECTVALUE1 = 'BO_SEARCH                     ' and  OBJECTVALUE2 = 'Runtime                       ' and  OBJECTVALUE3 = 'Apps_Interaction              ' and  OBJECTVALUE4 = 'BusinessContact_Contact       ' and  OBJECTVALUE5 = 'OnExecute                     ' and  OBJECTVALUE6 = '                              ' and  OBJECTVALUE7 = '                              '";
 		//	" where  OBJECTVALUE1 = 'BO_SEARCH                     ' and  OBJECTVALUE2 = 'Abstract                      ' and  OBJECTVALUE3 = 'BOSearchSQLGenerator          ' and  OBJECTVALUE4 = 'OnExecute                     ' and  OBJECTVALUE5 = '                              ' and  OBJECTVALUE6 = '                              ' and  OBJECTVALUE7 = '                              '";
-		    " , PSPROJECTITEM pi where  pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.PROJECTNAME='MERS_CSR039'";
+		    " , PSPROJECTITEM pi where  pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.PROJECTNAME='CSR039'";
 		List<JDBCPeopleCodeContainer> containers = getPeopleCodeContainers( whereClause);
 		logger.info("Ready; "+ containers.size() + " container(s) created");
 		
