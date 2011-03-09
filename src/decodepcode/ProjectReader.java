@@ -222,6 +222,7 @@ public class ProjectReader implements PeopleToolsObject
 				String projName = fileName.substring(0, fileName.length() - 4);
 				File dir = new File(".", projName);
 				dir.mkdir();
+				System.out.println("Output in " + dir.getAbsolutePath() );
 				p.readProject( new File(xmlFile), new DirTreePTmapper(dir));
 				Controller.writeStats();
 			}

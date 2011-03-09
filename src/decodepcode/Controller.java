@@ -379,6 +379,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	{
 		try {
 			File dir =	new File(".", "output");
+			System.out.println("Output in " + dir.getAbsolutePath() );
 			
 			if (a.length > 1 && "since".equalsIgnoreCase(a[0]))
 			{
