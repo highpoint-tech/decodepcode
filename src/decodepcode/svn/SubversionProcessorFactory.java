@@ -21,7 +21,6 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 	PToolsObjectToFileMapper mapper = new DirTreePTmapper(); 
 	SubversionSubmitter.FixedAuthManagerMapper authMapper = new SubversionSubmitter.FixedAuthManagerMapper();	
 	
-	@Override
 	public ContainerProcessor getContainerProcessor() {
 		if (!ok)
 			throw new IllegalArgumentException("Cannot instantiate SVN processor because of invalid properties");
@@ -35,7 +34,6 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 		}
 	}
 
-	@Override
 	public PToolsObjectToFileMapper getMapper() {
 		return mapper;
 	}
@@ -52,7 +50,6 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 		authMapper.addCredentials(u1[0], u1[1], u1[2]);		
 	}
 	
-	@Override
 	public void setParameters(Properties properties) 
 	{
 		String url = properties.getProperty("SVNURL");

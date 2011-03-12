@@ -236,7 +236,6 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 		{
 			list.add(c);
 		}
-		@Override
 		public void processSQL(SQLobject sql) throws IOException {
 			sqlList.add(sql);
 		}		

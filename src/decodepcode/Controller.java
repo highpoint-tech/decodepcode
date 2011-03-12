@@ -264,7 +264,6 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			if (p instanceof JDBCPeopleCodeContainer)
 				((JDBCPeopleCodeContainer) p).writeReferencesToFile(mapper.getFile(p, "references"));
 		}
-		@Override
 		public void processSQL(SQLobject sql) throws IOException {
 			File sqlFile = mapper.getFileForSQL(sql.recName, "sql");
 			logger.info("Creating " + sqlFile);
@@ -342,7 +341,6 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			}
 			w.close();			
 		}
-		@Override
 		public void processSQL(SQLobject sql) throws IOException 
 		{
 			File sqlFile = mapper.getFileForSQL(sql.recName, "sql");

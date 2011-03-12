@@ -12,7 +12,6 @@ public class SQLobject implements PeopleToolsObject
 		recName = _recName; sql = _sql; lastChangedBy = _lastChangedBy; lastChanged = _lastChanged;
 	}
 	
-	@Override
 	public String[] getKeys() 
 	{
 		String[] a = new String[1];
@@ -20,17 +19,14 @@ public class SQLobject implements PeopleToolsObject
 		return a;
 	}
 
-	@Override
 	public int getPeopleCodeType() {
 		return -1;
 	}
 
-	@Override
 	public String getLastChangedBy() {
 		return lastChangedBy;
 	}
 
-	@Override
 	public Date getLastChangedDtTm() {
 		return lastChanged;
 	}

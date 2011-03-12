@@ -162,11 +162,12 @@ public class SubversionSubmitter
 					w.toString().getBytes());
 			} catch (SVNException se)
 			{
-				throw new IOException("Error submitting pcode to Subversion", se);				
+				IOException e = new IOException("Error submitting pcode to Subversion");
+				e.initCause(se);
+				throw e; 				
 			}
 		}
 
-		@Override
 		public void processSQL(SQLobject sql) throws IOException 
 		{
 			String path = basePath + mapper.getPathForSQL(sql.getRecName(), "sql");
@@ -180,7 +181,9 @@ public class SubversionSubmitter
 					sql.getSql().getBytes());
 			} catch (SVNException se)
 			{
-				throw new IOException("Error submitting pcode to Subversion", se);				
+				IOException e = new IOException("Error submitting pcode to Subversion");
+				e.initCause(se);
+				throw e; 				
 			}
 		}		
 	}
