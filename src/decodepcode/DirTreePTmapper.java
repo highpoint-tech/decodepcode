@@ -5,6 +5,8 @@ import java.io.IOException;
 
 public class DirTreePTmapper implements PToolsObjectToFileMapper {
 	File rootDir;
+	public DirTreePTmapper( ) {}
+
 	public DirTreePTmapper( File _rootDir)
 	{
 		rootDir = _rootDir;
@@ -30,6 +32,22 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 		File dir = new File(new File(rootDir, "SQL"), recordName);
 		dir.mkdirs();
 		return new File(dir, recordName + "." + extension);
+	}
+	public String getPath(PeopleToolsObject obj, String extension) {
+		String pcType = JDBCPeopleCodeContainer.objectTypeStr(obj.getPeopleCodeType());
+		String f = "/" + pcType + "/";
+		int last = -1;
+		for (int i = 0; i < obj.getKeys().length; i++)
+			if (obj.getKeys()[i] != null && obj.getKeys()[i].trim().length() > 0)
+				last = i;
+		for (int i = 0; i <= last; i++)
+			f += obj.getKeys()[i].trim() + "/";
+		f += obj.getKeys()[last].trim() + "." + extension;
+		return f;
+	}
+	public String getPathForSQL(String recordName, String extension) {
+		recordName = recordName.trim();
+		return "/SQL/" +  recordName + "/" +  recordName + "." + extension;
 	}
 
 }

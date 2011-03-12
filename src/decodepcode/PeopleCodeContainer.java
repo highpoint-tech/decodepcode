@@ -10,13 +10,17 @@ import java.io.StringWriter;
 import java.util.Date;
 import java.util.logging.Logger;
 
-abstract class PeopleCodeContainer implements PeopleToolsObject 
+public abstract class PeopleCodeContainer implements PeopleToolsObject 
 {
 	int pos;
 	byte[] bytes;
 	String lastChangedBy;
 	Date lastChangedDtTm;
 	
+	public boolean hasPlainPeopleCode() 
+	{ 
+		return peopleCodeText != null; 
+	}  
 	abstract String getReference( int nameNum); 
 	byte read() { return bytes[pos]; }
 	byte get()  { return bytes[pos++]; }
@@ -79,6 +83,7 @@ abstract class PeopleCodeContainer implements PeopleToolsObject
 		}
 		setPeopleCodeText(sw.toString());
 	}
+	
 	public static String objectTypeStr( int objType)
 	{
 		switch (objType) {
@@ -107,12 +112,14 @@ abstract class PeopleCodeContainer implements PeopleToolsObject
 		return -1;
 		
 	}
+
 	public String getLastChangedBy() {
 		return lastChangedBy;
 	}
 	public void setLastChangedBy(String lastChangedBy) {
 		this.lastChangedBy = lastChangedBy;
 	}
+	@Override
 	public Date getLastChangedDtTm() {
 		return lastChangedDtTm;
 	}

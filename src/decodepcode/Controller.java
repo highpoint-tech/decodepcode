@@ -1,18 +1,20 @@
 package decodepcode;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.Writer;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -20,7 +22,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-import decodepcode.JDBCPeopleCodeContainer.ContainerProcessor;
 import decodepcode.JDBCPeopleCodeContainer.KeySet;
 import decodepcode.JDBCPeopleCodeContainer.StoreInList;
 
@@ -54,7 +55,8 @@ public class Controller {
 	static boolean writePPC = false;
 	static boolean reverseEngineer= false; 
 	static long countPPC=0, countSQL= 0;
-	
+	final static File lastTimeFile = new File("last-time.txt");
+
 	static Properties props;
 	static
 	{
@@ -67,20 +69,16 @@ public class Controller {
 		}
 	}
 	
-	public static List<JDBCPeopleCodeContainer> getPeopleCodeContainers(String whereClause) throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeContainer> getPeopleCodeContainers(String whereClause) throws ClassNotFoundException, SQLException
 	{
-		List<JDBCPeopleCodeContainer> list = new ArrayList<JDBCPeopleCodeContainer>();
-		StoreInList s = new StoreInList(list);
+		List<PeopleCodeContainer> list = new ArrayList<PeopleCodeContainer>();
+		StoreInList s = new StoreInList(list, null);
 		try {
 			makeAndProcessContainers( whereClause, s);
 		} catch (IOException io) {}
 		return list;
 	}	
 	
-	public static void writeSQLforProjectToFile(String projectName, File baseDir) throws ClassNotFoundException, SQLException, IOException
-	{
-		writeSQLforProjectToFile( projectName, new DirTreePTmapper(baseDir));
-	}
 	public static void getJDBCconnection() throws ClassNotFoundException, SQLException
 	{
 		logger.info("Getting JDBC connection");
@@ -88,9 +86,9 @@ public class Controller {
 		dbconn = DriverManager.getConnection(props.getProperty("url"), props.getProperty("user"), props.getProperty("password"));		
 	}
 	
-	interface ParameterSetter
+	public interface ParameterSetter
 	{
-		void setParameters( PreparedStatement ps) throws SQLException;
+		public void setParameters( PreparedStatement ps) throws SQLException;
 	}
 
 	public static void makeAndProcessContainers( String whereClause, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
@@ -122,31 +120,22 @@ td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT
 from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID 
 ---and td.SQLID in (select OBJECTVALUE1 from PSPROJECTITEM where PROJECTNAME='TEST2')
 	 */
-	static void writeSQLtoFile( ResultSet rs, PToolsObjectToFileMapper mapper) throws SQLException, IOException
+	static void processSQLs( ResultSet rs, ContainerProcessor processor) throws SQLException, IOException
 	{
 		while (rs.next())
 		{
 			String recName = rs.getString("SQLID");
-			String sql = rs.getString("SQLTEXT");
-			if (recName == null || sql == null)
+			String sqlStr = rs.getString("SQLTEXT");
+			if (recName == null || sqlStr == null)
 				continue;
-			File sqlFile = mapper.getFileForSQL(recName, "sql");
-			logger.info("Creating " + sqlFile);
-			FileWriter fw = new FileWriter(sqlFile);
-//			dbedit.internal.parser.Formatter formatter = new Formatter();
-//			sql = formatter.format(sql, 0, null, System.getProperty("line.separator"));
-			fw.write(sql);
-			fw.close();
-			File infoFile = mapper.getFileForSQL(recName, "last_update");
-			PrintWriter pw = new PrintWriter(infoFile);
-			pw.println(rs.getString("LASTUPDOPRID"));
-			pw.println(ProjectReader.df2.format(rs.getTimestamp("LASTUPDDTTM")));
-			pw.close();
+			Date date = new Date(rs.getTimestamp("LASTUPDDTTM").getTime());
+			SQLobject sql = new SQLobject(recName.trim(), sqlStr.trim(), rs.getString("LASTUPDOPRID"), date);
+			processor.processSQL(sql);
 			countSQL++;
 		}
 	}
 
-	public static void writeSQLforProjectToFile(String projectName, PToolsObjectToFileMapper mapper) throws ClassNotFoundException, SQLException, IOException
+	public static void processSQLforProject(String projectName, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
 	{
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td, " 
@@ -155,16 +144,12 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		Statement st0 =  dbconn.createStatement();
 		logger.info(q);
 		ResultSet rs = st0.executeQuery(q);		
-		writeSQLtoFile(rs, mapper);
+		processSQLs(rs, processor);
 		st0.close();
 	}
 	
-	public static void writeSQLsinceDateToFile(java.sql.Timestamp date, File baseDir) throws ClassNotFoundException, SQLException, IOException
-	{
-		writeSQLsinceDateToFile( date, new DirTreePTmapper(baseDir));
-	}
 	
-	public static void writeSQLsinceDateToFile( java.sql.Timestamp date, PToolsObjectToFileMapper mapper) throws ClassNotFoundException, SQLException, IOException
+	public static void processSQLsinceDate( java.sql.Timestamp date, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
 	{
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td " 
@@ -174,16 +159,16 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		st0.setTimestamp(1, date);
 		logger.info(q);
 		ResultSet rs = st0.executeQuery();		
-		writeSQLtoFile(rs, mapper);
+		processSQLs(rs, processor);
 		st0.close();
 	}
 
 	public static void writeCustomSQLtoFile(File baseDir) throws ClassNotFoundException, SQLException, IOException
 	{
-		writeCustomSQLtoFile( new DirTreePTmapper(baseDir));
+		processCustomSQLs( new WriteDecodedPPCtoDirectoryTree(baseDir));
 	}
 	
-	public static void writeCustomSQLtoFile(PToolsObjectToFileMapper mapper) throws ClassNotFoundException, SQLException, IOException
+	public static void processCustomSQLs(ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
 	{
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td " 
@@ -192,11 +177,11 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		PreparedStatement st0 =  dbconn.prepareStatement(q);
 		logger.info(q);
 		ResultSet rs = st0.executeQuery();		
-		writeSQLtoFile(rs, mapper);
+		processSQLs(rs, processor);
 		st0.close();
 	}
 		
-	public static List<JDBCPeopleCodeContainer> getPeopleCodeContainersForProject(Properties props, String projectName) throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeContainer> getPeopleCodeContainersForProject(Properties props, String projectName) throws ClassNotFoundException, SQLException
 	{
 		String where = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
 		    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2= pc.OBJECTID2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3 and pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4)"
@@ -214,27 +199,28 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		return props;
 	}
 	
-	public static List<JDBCPeopleCodeContainer> getPeopleCodeContainersForApplicationPackage(String packageName) throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeContainer> getPeopleCodeContainersForApplicationPackage(String packageName) throws ClassNotFoundException, SQLException
 	{
 		String where = "  , " + dbowner + "PSPACKAGEDEFN pk  where pk.PACKAGEROOT  = '" + packageName + "' and pk.PACKAGEID    = pc.OBJECTVALUE1    and pc.OBJECTVALUE1 = pk.PACKAGEROOT ";
 		return getPeopleCodeContainers( where);
 	}
 	
-	public static List<JDBCPeopleCodeContainer> getAllPeopleCodeContainers() throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeContainer> getAllPeopleCodeContainers() throws ClassNotFoundException, SQLException
 	{
 		String where = " where (1=1) ";
 		return getPeopleCodeContainers( where);
 	}
 	
-	public static void writeToDirectoryTree( List<JDBCPeopleCodeContainer> containers, File rootDir) throws IOException, SQLException, ClassNotFoundException
+	public static void writeToDirectoryTree( List<PeopleCodeContainer> containers, File rootDir) throws IOException, SQLException, ClassNotFoundException
 	{	
 		logger.info("Writing to directory tree " + rootDir);
 		rootDir.mkdirs();
 		DirTreePTmapper mapper= new DirTreePTmapper(rootDir);
-		for (JDBCPeopleCodeContainer p: containers)
+		for (PeopleCodeContainer p: containers)
 		{
 			p.writeBytesToFile(mapper.getFile(p, "bin"));
-			p.writeReferencesToFile(mapper.getFile(p, "references"));
+			if (p instanceof JDBCPeopleCodeContainer)
+				((JDBCPeopleCodeContainer) p).writeReferencesToFile(mapper.getFile(p, "references"));
 		}
 		logger.info("Finished writing to directory tree");
 	}
@@ -242,21 +228,22 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	public static void writeProjectToDirectoryTree2( String project, File rootDir) throws IOException, SQLException, ClassNotFoundException
 	{
 		logger.info("Retrieving bytecode for project " + project);
-		List<JDBCPeopleCodeContainer> containers;
+		List<PeopleCodeContainer> containers;
 		containers = getPeopleCodeContainersForProject(props, project);
 		writeToDirectoryTree(containers, rootDir);
 	}
 	
-	public static void writeProjectToDirectoryTree( String projectName, File rootDir) throws IOException, SQLException, ClassNotFoundException
+	public static void processProject( String projectName, ContainerProcessor processor) throws IOException, SQLException, ClassNotFoundException
 	{
-		logger.info("Starting to write PeopleCode for project " + projectName + " to directory tree " + rootDir);
+		logger.info("Starting to write PeopleCode for project " + projectName );
 		String whereClause = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
 	    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2= pc.OBJECTID2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3 and pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4)"
 		+ "  or (pi.OBJECTTYPE  = 43 and pi.OBJECTVALUE3 = pc.OBJECTVALUE6))  "
 		+ " and pi.PROJECTNAME='" + projectName + "' and pi.OBJECTTYPE in (8 , 9 ,39 ,40 ,42 ,43 ,44 ,46 ,47 ,48 ,58)";
-		makeAndProcessContainers( whereClause, new WriteDecodedPPCtoDirectoryTree(rootDir));
-		logger.info("Finished writing .pcode files");		
-		writeSQLforProjectToFile(projectName, rootDir); 		
+		makeAndProcessContainers( whereClause, processor);
+		logger.info("Finished writing .pcode files for project " + projectName);		
+		processSQLforProject(projectName, processor); 		
+		logger.info("Finished writing .sql files for project " + projectName);		
 	}
 
 	
@@ -271,10 +258,27 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		{
 			this( new DirTreePTmapper(rootDir));
 		}
-		public void process(JDBCPeopleCodeContainer p) throws IOException 
+		public void process(PeopleCodeContainer p) throws IOException 
 		{
 			p.writeBytesToFile(mapper.getFile(p, "bin"));
-			p.writeReferencesToFile(mapper.getFile(p, "references"));
+			if (p instanceof JDBCPeopleCodeContainer)
+				((JDBCPeopleCodeContainer) p).writeReferencesToFile(mapper.getFile(p, "references"));
+		}
+		@Override
+		public void processSQL(SQLobject sql) throws IOException {
+			File sqlFile = mapper.getFileForSQL(sql.recName, "sql");
+			logger.info("Creating " + sqlFile);
+			FileWriter fw = new FileWriter(sqlFile);
+//			dbedit.internal.parser.Formatter formatter = new Formatter();
+//			sql = formatter.format(sql, 0, null, System.getProperty("line.separator"));
+			fw.write(sql.sql);
+			fw.close();
+			File infoFile = mapper.getFileForSQL(sql.recName, "last_update");
+			PrintWriter pw = new PrintWriter(infoFile);
+			pw.println(sql.lastChangedBy);
+			pw.println(ProjectReader.df2.format(sql.lastChanged));
+			pw.close();
+			countSQL++;
 		}		
 	}
 	
@@ -309,11 +313,16 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		{
 			this(rootDir, "pcode");
 		}
-		public void process(JDBCPeopleCodeContainer p) throws IOException 
+		public void process(PeopleCodeContainer p) throws IOException 
 		{
-			FileWriter w = new FileWriter(mapper.getFile(p, extension));
+			File f = mapper.getFile(p, extension);
+			logger.info("Creating " + f);
+			FileWriter w = new FileWriter(f);
 			try {
-				parser.parse(p, w);
+				if (p.hasPlainPeopleCode()) // why decode the bytecode if we have the plain text...
+					w.write(p.getPeopleCodeText());
+				else
+					parser.parse(p, w);
 				File infoFile = mapper.getFile(p, "last_update");
 				PrintWriter pw = new PrintWriter(infoFile);
 				pw.println(p.getLastChangedBy());
@@ -332,37 +341,59 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				w1.close();
 			}
 			w.close();			
+		}
+		@Override
+		public void processSQL(SQLobject sql) throws IOException 
+		{
+			File sqlFile = mapper.getFileForSQL(sql.recName, "sql");
+			logger.info("Creating " + sqlFile);
+			FileWriter fw = new FileWriter(sqlFile);
+			fw.write(sql.sql);
+			fw.close();
+			if (sql.getLastChangedBy() != null && sql.lastChanged != null)
+			{
+				File infoFile = mapper.getFileForSQL(sql.recName, "last_update");
+				PrintWriter pw = new PrintWriter(infoFile);
+				pw.println(sql.lastChangedBy);
+				pw.println(ProjectReader.df2.format(sql.lastChanged));
+				pw.close();
+			}
+			countSQL++;			
 		}		
 	}
 		
-	public static void writeDecodedPPCtoDirectoryTree( String whereClause, File rootDir) throws ClassNotFoundException, SQLException, IOException
+	public static void writeDecodedPPC( String whereClause, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
 	{
-		logger.info("Starting to write decoded PeopleCode files to directory tree " + rootDir);
-		makeAndProcessContainers( whereClause, new WriteDecodedPPCtoDirectoryTree(rootDir));
+		logger.info("Starting to write decoded PeopleCode segments");
+		makeAndProcessContainers( whereClause, processor);
 		logger.info("Finished writing .pcode files");		
 	}
 	
-	static class DateSetter implements ParameterSetter
+	public static class DateSetter implements ParameterSetter
 	{
 		java.sql.Timestamp d;
-		DateSetter( java.sql.Timestamp _d) { d = _d; }
+		public DateSetter( java.sql.Timestamp _d) { d = _d; }
 		public void setParameters(PreparedStatement ps) throws SQLException {
 			ps.setTimestamp(1, d);			
 		}
 	}	
-	public static void writeDecodedRecentPPCtoDirectoryTree( java.sql.Timestamp fromDate, File rootDir) throws ClassNotFoundException, SQLException, IOException
+	
+	public static void writeDecodedRecentPPC( java.sql.Timestamp fromDate, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
 	{
-		logger.info("Starting to write decoded PeopleCode with time stamp after " + fromDate + "  to directory tree " + rootDir);
+		logger.info("Starting to write decoded PeopleCode with time stamp after " + fromDate );
+		FileWriter f = new FileWriter(lastTimeFile);
+		f.write(ProjectReader.df2.format(new Date()));
+		f.close();
 		String whereClause = " where LASTUPDDTTM > ?";
-		makeAndProcessContainers( whereClause, new WriteDecodedPPCtoDirectoryTree(rootDir), new DateSetter(fromDate));
+		makeAndProcessContainers( whereClause, processor, new DateSetter(fromDate));
 		logger.info("Finished writing .pcode files");		
 	}
 
-	public static void writeCustomizedPPCtoDirectoryTree( File rootDir) throws ClassNotFoundException, SQLException, IOException
+	public static void writeCustomizedPPC( ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
 	{
-		logger.info("Starting to write customized PeopleCode files to directory tree " + rootDir);
+		logger.info("Starting to write customized PeopleCode files ");
 		String whereClause = " where pc.LASTUPDOPRID <> 'PPLSOFT'";
-		makeAndProcessContainers( whereClause, new WriteDecodedPPCtoDirectoryTree(rootDir));
+		makeAndProcessContainers( whereClause, processor);
 		logger.info("Finished writing .pcode files");		
 	}	
 	
@@ -375,52 +406,103 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	 *  Arguments: project name, or 'since' + date (in yyyy/MM/dd format), or 'since-days' + #days, or 'custom'"
 	 * @param a
 	 */
+	@SuppressWarnings("unchecked")
 	public static void main(String[] a)
 	{
 		try {
-			File dir =	new File(".", "output");
-			System.out.println("Output in " + dir.getAbsolutePath() );
+			if (a.length == 0 || !a[0].startsWith("Process"))
+				throw new IllegalArgumentException("First argument should be ProcessToFile or similar");			
+			ContainerProcessorFactory factory = null;
+			Class<ContainerProcessorFactory> factoryClass = null;
+			if (a[0].equals("ProcessToFile"))
+			{
+				factoryClass = (Class<ContainerProcessorFactory>) Class.forName("decodepcode.FileProcessorFactory");
+				File dir =	new File(".", "output");
+				System.out.println("Output in " + dir.getAbsolutePath() );
+			}
+			else
+				if (a[0].equals("ProcessToSVN"))
+				{
+						factoryClass = (Class<ContainerProcessorFactory>) 
+							Class.forName("decodepcode.svn.SubversionProcessorFactory");
+				}
+				else
+					throw new IllegalArgumentException("Don't have a processor class for " + a[0] );
 			
-			if (a.length > 1 && "since".equalsIgnoreCase(a[0]))
+			factory = (ContainerProcessorFactory) factoryClass.newInstance();
+			factory.setParameters(props);
+			ContainerProcessor processor = factory.getContainerProcessor();
+
+			if (a.length > 2 && "since".equalsIgnoreCase(a[1]))
 			{
 				SimpleDateFormat sd = new SimpleDateFormat("yyyy/MM/dd");
-				java.util.Date time = sd.parse(a[1]);
+				java.util.Date time = sd.parse(a[2]);
 				java.sql.Timestamp d = new java.sql.Timestamp(time.getTime());
-				writeDecodedRecentPPCtoDirectoryTree(d, dir);
-				writeSQLsinceDateToFile( d, dir);
+				writeDecodedRecentPPC(d, processor);
+				processSQLsinceDate( d, processor);
 				writeStats();
 				return;
 			}
 
-			if (a.length > 1 && "since-days".equalsIgnoreCase(a[0]))
+			if (a.length > 2 && "since-days".equalsIgnoreCase(a[1]))
 			{
 				java.util.Date time = new Date();
-				long days = Long.parseLong(a[1]);
+				long days = Long.parseLong(a[2]);
 				java.sql.Timestamp d = new java.sql.Timestamp(time.getTime() - 24 * 60 * 60 * 1000 * days);
-				writeDecodedRecentPPCtoDirectoryTree(d, dir);
-				writeSQLsinceDateToFile( d, dir);
+				writeDecodedRecentPPC(d, processor);
+				processSQLsinceDate( d, processor);
 				writeStats();
 				return;
 			}
-			
-			if (a.length >= 1 && "custom".equalsIgnoreCase(a[0]))
+			if (a.length >= 2 && "since-last-time".equalsIgnoreCase(a[1]))
 			{
-				writeCustomizedPPCtoDirectoryTree(dir);
-				writeCustomSQLtoFile( dir);
+				if (!lastTimeFile.exists())
+				{
+					logger.severe("Need file 'last-time.txt' to run with 'since-last-time' parameter");
+					return;
+				}
+				BufferedReader br = new BufferedReader(new FileReader(lastTimeFile));
+				String line = br.readLine();
+				br.close();
+				Date d;
+				try {
+					d = ProjectReader.df2.parse(line);
+				} catch (ParseException e) {
+					logger.severe("Found " + lastTimeFile + ", but can't parse its contents to a date/time");
+					return;
+				}
+				logger.info("Processing objects modified since last time = " + line);
+				writeDecodedRecentPPC(new Timestamp(d.getTime()), processor);
+				processSQLsinceDate( new Timestamp(d.getTime()), processor);
+				writeStats();
+				return;				
+			}
+			
+			if (a.length >= 2 && "custom".equalsIgnoreCase(a[1]))
+			{
+				writeCustomizedPPC(processor);
+				processCustomSQLs( processor);
 				writeStats();
 				return;				
 			}
 
-			if (a.length == 1)
+			if (a.length >= 2 && a[1].toLowerCase().endsWith(".xml"))
 			{
-				writeProjectToDirectoryTree(a[0], dir);
+				ProjectReader p = new ProjectReader();
+				p.setProcessor(processor);
+				p.readProject( new File(a[1]));
+				writeStats();
+			}
+
+			
+			if (a.length == 2)
+			{
+				processProject(a[1], processor);
 				writeStats();
 				return;
 			}
 			
-			System.err.println("Arguments: project name, or 'since' + date (in yyyy/MM/dd format), or 'since-days' + #days, or 'custom'");
-			//writeAllPPPCtoDirectoryTree(dir);
-			//writeAllPPCtoDirectoryTree(new File("c:\\projects\\sandbox\\peoplecode\\HRDEV"));
+			System.err.println("Arguments: ProcessToXXX followed by project name, or 'since' + date (in yyyy/MM/dd format), or 'since-days' + #days, or 'since-last-time', or 'custom'");
 
 		} catch (Exception e) {
 			logger.severe(e.getMessage());
@@ -428,46 +510,5 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 	}
 	
-	public static void testWithJDBC() throws Exception
-	{
-		String whereClause = 
-//			" pc ,dbo.PSPACKAGEDEFN pk  where pk.PACKAGEROOT  = 'BO_SEARCH'    and pk.PACKAGEID    = pc.OBJECTVALUE1    and pc.OBJECTVALUE1 = pk.PACKAGEROOT ";
-			//" where OBJECTVALUE1 = 'BO_SEARCH                     ' and  OBJECTVALUE2 = 'Runtime                       ' and  OBJECTVALUE3 = 'Apps_Interaction              ' and  OBJECTVALUE4 = 'BusinessContact_Contact       ' and  OBJECTVALUE5 = 'OnExecute                     ' and  OBJECTVALUE6 = '                              ' and  OBJECTVALUE7 = '                              '";
-		//	" where  OBJECTVALUE1 = 'BO_SEARCH                     ' and  OBJECTVALUE2 = 'Abstract                      ' and  OBJECTVALUE3 = 'BOSearchSQLGenerator          ' and  OBJECTVALUE4 = 'OnExecute                     ' and  OBJECTVALUE5 = '                              ' and  OBJECTVALUE6 = '                              ' and  OBJECTVALUE7 = '                              '";
-		    " , PSPROJECTITEM pi where  pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.PROJECTNAME='CSR039'";
-		List<JDBCPeopleCodeContainer> containers = getPeopleCodeContainers( whereClause);
-		logger.info("Ready; "+ containers.size() + " container(s) created");
-		
-		for (int i = 0; i < containers.size(); i++)
-			logger.info("# " + i + ": " + containers.get(i).keys.getWhere());
-		
-		
-		if (containers.size() > 0)
-		{
-			logger.info("Start parsing");
-			JDBCPeopleCodeContainer p = containers.get(0);
-			logger.info(p.keys.getWhere());
-			Writer w = new FileWriter("C:\\temp\\ppc.txt");
-			PeopleCodeParser parser = new PeopleCodeParser();
-			try {
-				if (writePPC)
-				{
-					FileOutputStream fos = new FileOutputStream("c:\\temp\\test.ppc");
-					fos.write(p.bytes);
-					fos.close();
-				}
-				if (!reverseEngineer)
-					parser.parse(p, w);
-				else
-				{
-					p.readPeopleCodeTextFromFile(new File("c:\\temp\\peoplecode.txt"));
-					parser.reverseEngineer(p);
-				}
-			} finally
-			{
-				w.close();
-			}
-		}	
-	}
 
 }

@@ -12,5 +12,7 @@ public abstract interface PToolsObjectToFileMapper {
 
 	public abstract File getFile( PeopleToolsObject obj, String extension) throws IOException; 
 	public abstract File getFileForSQL( String recordName, String extension) throws IOException;
+	public abstract String getPath( PeopleToolsObject obj, String extension); 
+	public abstract String getPathForSQL( String recordName, String extension);
 
 }

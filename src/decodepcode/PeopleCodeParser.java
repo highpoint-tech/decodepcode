@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -782,6 +783,16 @@ static class BinWithObject implements PeopleToolsObject
 	}
 	public int getPeopleCodeType() {
 		return type;
+	}
+	@Override
+	public String getLastChangedBy() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	@Override
+	public Date getLastChangedDtTm() {
+		// TODO Auto-generated method stub
+		return null;
 	}	
 }
 

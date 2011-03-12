@@ -125,7 +125,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 	{
 		keys = new KeySet(rs, false);
 		setLastChangedDtTm(rs.getTimestamp("LASTUPDDTTM"));
-		setLastChangedBy(rs.getString("LASTUPDOPRID"));
+		setLastChangedBy(rs.getString("LASTUPDOPRID").trim());
 		Statement st = dbconn.createStatement();
 		
 		String q ="select PROGTXT from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " order by PROGSEQ";
@@ -221,22 +221,24 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 	}
 
 
-	interface ContainerProcessor
-	{
-		void process( JDBCPeopleCodeContainer c) throws IOException;
-	}
 	
 	
 	static class StoreInList implements ContainerProcessor
 	{
-		List<JDBCPeopleCodeContainer> list;
-		public StoreInList(List<JDBCPeopleCodeContainer> _list) 
+		List<PeopleCodeContainer> list;
+		List<SQLobject> sqlList;
+		public StoreInList( List<PeopleCodeContainer> _list, List<SQLobject> _sqlList) 
 		{
 			list = _list;
+			sqlList = _sqlList;
 		}
-		public void process(JDBCPeopleCodeContainer c) 
+		public void process(PeopleCodeContainer c) 
 		{
 			list.add(c);
+		}
+		@Override
+		public void processSQL(SQLobject sql) throws IOException {
+			sqlList.add(sql);
 		}		
 	}
 	
