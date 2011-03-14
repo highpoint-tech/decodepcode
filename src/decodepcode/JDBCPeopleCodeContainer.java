@@ -30,6 +30,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
 
+/**
+ * Extends the base PeopleCodeContainer with functionality to retrieve the bytecode from the PeopleTools tables
+ */
 
 public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements PeopleToolsObject 
 {
@@ -96,6 +99,16 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 			}
 			return s;
 		}
+		@Override
+		public boolean equals( Object o)
+		{
+			return compositeKey().equals( ((KeySet) o).compositeKey());
+		}
+		@Override
+		public String toString()
+		{
+			return compositeKey();
+		}
 		public int getNrOfValuesToCompare() {
 			return nrOfValuesToCompare;
 		}
@@ -120,19 +133,31 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 //		keyWords.put("FIELD", "");
 //		keyWords.put("RECORD", "");		
 	}
+	boolean foundPeopleCode = false;
 	
+	
+	/**
+	 * 
+	 * @param dbconn Connection from which bytecode is to be read
+	 * @param dbowner schema for this connection
+	 * @param rs ResultSet containing key info for the PCMPROG row(s)to be read; this ResultSet may or may not come
+	 * 			from the same database as the Connection parameter. 
+	 */
 	public JDBCPeopleCodeContainer( Connection dbconn, String dbowner, ResultSet rs) throws SQLException, ClassNotFoundException
 	{
+		String cat = dbconn.getCatalog();
+		if (cat != null && cat.trim().length() > 0)
+			source = cat.trim();
 		keys = new KeySet(rs, false);
-		setLastChangedDtTm(rs.getTimestamp("LASTUPDDTTM"));
-		setLastChangedBy(rs.getString("LASTUPDOPRID").trim());
 		Statement st = dbconn.createStatement();
 		
-		String q ="select PROGTXT from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " order by PROGSEQ";
+		String q ="select PROGTXT, LASTUPDDTTM, LASTUPDOPRID from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " order by PROGSEQ";
 		logger.info(q);
 		ResultSet rs2 = st.executeQuery(q);
 		while (rs2.next())
 		{	
+			setLastChangedDtTm(rs2.getTimestamp("LASTUPDDTTM"));
+			setLastChangedBy(rs2.getString("LASTUPDOPRID").trim());
 			byte[] b = rs2.getBytes("PROGTXT");
 			if (bytes == null)
 				bytes = b;
@@ -146,10 +171,13 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 				bytes = b1;
 			}
 		}
-		if (bytes.length == 0)
-			logger.severe("Nothing retrieved from PSPCMPRPG with "+ q);
-		else
-			logger.info("PeopleCode byte length = " + bytes.length + " (0x" + Integer.toString(bytes.length, 16) + ")" );		
+		if (bytes == null || bytes.length == 0)
+		{
+			//logger.severe("Nothing retrieved from PSPCMPRPG with "+ q);
+			return;
+		}
+		foundPeopleCode = true;
+		logger.fine("PeopleCode byte length = " + bytes.length + " (0x" + Integer.toString(bytes.length, 16) + ")" );		
 		
 		q ="select RECNAME, REFNAME, NAMENUM from " + dbowner + "PSPCMNAME where " + keys.getWhere();
 		logger.info(q);
@@ -168,7 +196,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 					(recname != null && recname.length()> 0? recname + "." : "") 
 					+ refName);
 		}
-		logger.info("" + references.size() + " references found");
+		logger.fine("" + references.size() + " references found");
 		st.close();
 	}
 	
@@ -223,8 +251,9 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 
 	
 	
-	static class StoreInList implements ContainerProcessor
+	static class StoreInList extends ContainerProcessor
 	{
+		
 		List<PeopleCodeContainer> list;
 		List<SQLobject> sqlList;
 		public StoreInList( List<PeopleCodeContainer> _list, List<SQLobject> _sqlList) 
@@ -251,5 +280,9 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 	@Override
 	public int getPeopleCodeType() {
 		return keys.objType;
+	}
+
+	public boolean hasFoundPeopleCode() {
+		return foundPeopleCode;
 	}
 }

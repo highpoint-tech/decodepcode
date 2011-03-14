@@ -8,5 +8,6 @@ public interface PeopleToolsObject
 	public int getPeopleCodeType();
 	public Date getLastChangedDtTm();
 	public String getLastChangedBy();
+	public String getSource();
 
 }

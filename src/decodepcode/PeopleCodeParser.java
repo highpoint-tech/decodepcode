@@ -767,7 +767,7 @@ public static void tryAllInDirectory( File dir) throws Exception
 }
 */
 
-static class BinWithObject implements PeopleToolsObject
+private static class BinWithObject implements PeopleToolsObject
 {
 	File bin;
 	String[] keys;
@@ -792,6 +792,7 @@ static class BinWithObject implements PeopleToolsObject
 		// TODO Auto-generated method stub
 		return null;
 	}	
+	public String getSource() { return "bin-only test object";} 
 }
 
 static List<BinWithObject> binFiles;

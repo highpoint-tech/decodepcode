@@ -46,7 +46,7 @@ public class ProjectReader
 	final static String eol=System.getProperty("line.separator");
 	private PeopleToolsProject project;
 	java.util.Date timeStamp;
-	String lastUpdOprid, sqlRecordName;
+	String lastUpdOprid, sqlRecordName, source;
 	ProjectPeopleCodeContainer container = new ProjectPeopleCodeContainer();
 	SQLobject sqlObject;
 	ContainerProcessor processor;
@@ -100,17 +100,20 @@ public class ProjectReader
 				container.setPeopleCodeText(n.getTextContent());
 				container.setLastChangedBy(lastUpdOprid);
 				container.setLastChangedDtTm(timeStamp);
+				container.setSource(source);
 				processor.process(container);
 				Controller.countPPC++;
 				lastUpdOprid = null;
 				timeStamp = null;				
 			}
 			
-			if ("lpszSqlText".equals(n.getNodeName()))				
+			if ("lpszSqlText".equals(n.getNodeName()) && level == 9)				
 			{
 				String key = container.getKeyFromObjectValues();
-				logger.fine("==== lpszSqlText ========= level = " + level + " key = '" + key + "'\n");
-				processor.processSQL( new SQLobject(sqlRecordName, n.getTextContent(), lastUpdOprid, timeStamp));
+				logger.fine("==== lpszSqlText ========= level = " + level + " key = '" + key + "'");
+				SQLobject sqlObj = new SQLobject(sqlRecordName, n.getTextContent(), lastUpdOprid, timeStamp);
+				sqlObj.setSource(source);
+				processor.processSQL( sqlObj);
 				Controller.countSQL++;
 				lastUpdOprid = null;
 				timeStamp = null;
@@ -127,7 +130,7 @@ public class ProjectReader
 	public PeopleToolsProject readProject( File file) throws IOException, SAXException, ParserConfigurationException
 	{
 		project = new PeopleToolsProject();
-
+		source = file.getName();
 		File dir = new File(System.getProperty("java.io.tmpdir"));
 		if (!dir.exists() || !dir.isDirectory())
 			throw new IOException("Temp dir "+ dir + " not accessible");
@@ -152,7 +155,7 @@ public class ProjectReader
 			{
 				w.close();
 				count++;
-				logger.info("Created file # " + count);
+				logger.fine("Created file # " + count);
 				visit(DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file2), 0);
 				file2.delete();
 				w = null;

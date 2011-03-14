@@ -38,7 +38,7 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 		return mapper;
 	}
 
-	// e.g. SVNUSER1=PPLSOFT/harry/secret
+	// e.g. svnuser1=PPLSOFT/harry/secret
 	private void setSVNuser( String key, String triplet)
 	{
 		String[] u1 = triplet.split("/");
@@ -50,12 +50,12 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 		authMapper.addCredentials(u1[0], u1[1], u1[2]);		
 	}
 	
-	public void setParameters(Properties properties) 
+	public void setParameters(Properties properties, String suffix) 
 	{
-		String url = properties.getProperty("SVNURL");
+		String url = properties.getProperty("svnurl" + suffix);
 		if (url == null)
 		{
-			logger.severe("No SVNURL entry in properties");
+			logger.severe("No svnurl" + suffix + " entry in properties");
 			return;
 		}
 		try {
@@ -65,19 +65,19 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 			logger.severe("Invalid Subversion URL: " + ex.getMessage());
 			return;
 		}
-		basePath = properties.getProperty("SVNBASE");
+		basePath = properties.getProperty("svnbase" + suffix);
 		if (basePath == null)
 		{
-			logger.severe("No SVNBASE entry in properties");
+			logger.severe("No svnbase" + suffix + " entry in properties");
 			return;
 		}
-		String u0 = properties.getProperty("SVNUSER"); // first process this one, so that it will be the default
+		String u0 = properties.getProperty("svnuser"); // first process this one, so that it will be the default
 		if (u0 != null)
-			setSVNuser("SVNUSER", u0);
+			setSVNuser("svnuser", u0);
 		for (Object key1: properties.keySet())
 		{
 			String key = (String) key1;
-			if (key.startsWith("SVNUSER"))
+			if (key.startsWith("svnuser"))
 			{
 				String user = properties.getProperty(key);
 				setSVNuser(key, user);
@@ -85,7 +85,7 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 		}
 		if (authMapper.map.size() == 0)
 		{
-			logger.severe("At least one SVNUSER* entry expected");
+			logger.severe("At least one svnuser* entry expected");
 			return;
 		}
 		ok = true;

@@ -18,8 +18,10 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import decodepcode.JDBCPeopleCodeContainer.KeySet;
@@ -56,6 +58,7 @@ public class Controller {
 	static boolean reverseEngineer= false; 
 	static long countPPC=0, countSQL= 0;
 	final static File lastTimeFile = new File("last-time.txt");
+	private static Set<String> recsProcessed = new HashSet<String>(); // for SQL IDs 
 
 	static Properties props;
 	static
@@ -69,21 +72,31 @@ public class Controller {
 		}
 	}
 	
-	public static List<PeopleCodeContainer> getPeopleCodeContainers(String whereClause) throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeContainer> getPeopleCodeContainers(String whereClause, boolean queryAllConnections) throws ClassNotFoundException, SQLException
 	{
 		List<PeopleCodeContainer> list = new ArrayList<PeopleCodeContainer>();
 		StoreInList s = new StoreInList(list, null);
+		List<ContainerProcessor> processors = new ArrayList<ContainerProcessor>();
+		processors.add(s);
 		try {
-			makeAndProcessContainers( whereClause, s);
+			makeAndProcessContainers( whereClause, queryAllConnections, processors);
 		} catch (IOException io) {}
 		return list;
 	}	
 	
-	public static void getJDBCconnection() throws ClassNotFoundException, SQLException
+	public static Connection getJDBCconnection( String suffix) throws ClassNotFoundException, SQLException
 	{
 		logger.info("Getting JDBC connection");
-		Class.forName(props.getProperty("driverClass"));
-		dbconn = DriverManager.getConnection(props.getProperty("url"), props.getProperty("user"), props.getProperty("password"));		
+		if (props.getProperty("driverClass" + suffix) != null)
+			Class.forName(props.getProperty("driverClass" + suffix));
+		else
+			Class.forName(props.getProperty("driverClass"));
+		Connection c = DriverManager.getConnection(props.getProperty("url" + suffix), 
+				props.getProperty("user"+ suffix), 
+				props.getProperty("password"+ suffix));
+		if (c.isClosed())
+			logger.severe("Could not open connection with suffix "+ suffix);
+		return c;		
 	}
 	
 	public interface ParameterSetter
@@ -91,27 +104,59 @@ public class Controller {
 		public void setParameters( PreparedStatement ps) throws SQLException;
 	}
 
-	public static void makeAndProcessContainers( String whereClause, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
+	public static void makeAndProcessContainers( String whereClause, boolean queryAllConnections, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		makeAndProcessContainers( whereClause, processor, null);
+		makeAndProcessContainers( whereClause, queryAllConnections, processors, null);
 	}
 	
-	public static void makeAndProcessContainers( String whereClause, ContainerProcessor processor, ParameterSetter callback) throws ClassNotFoundException, SQLException, IOException
+	public static void makeAndProcessContainers( 
+				String whereClause, 
+				boolean queryAllConnections,
+				List<ContainerProcessor> processors, 
+				ParameterSetter callback) throws ClassNotFoundException, SQLException, IOException
 	{
-		getJDBCconnection();
-		String q = "select "+ KeySet.getList() + ", LASTUPDOPRID, LASTUPDDTTM from " + dbowner + "PSPCMPROG pc " + whereClause + " and pc.PROGSEQ=0";
-		logger.info(q);
-		PreparedStatement st0 =  dbconn.prepareStatement(q);
-		if (callback != null)
-			callback.setParameters(st0);
-		ResultSet rs = st0.executeQuery();
-		while (rs.next())
+		Set<String> processedKeys = new HashSet<String>();
+		for (ContainerProcessor processor1: processors)
 		{
-			processor.process(new JDBCPeopleCodeContainer(dbconn, dbowner, rs));
-			logger.info("Completed JDBCPeopleCodeContainer" );
-			countPPC++;
+			logger.info("Now determining what PeopleCode to process by querying environment " + processor1.getTag());
+			String q = "select "+ KeySet.getList() + ", LASTUPDOPRID, LASTUPDDTTM from " 
+				+ processor1.getDBowner() + "PSPCMPROG pc " + whereClause + " and pc.PROGSEQ=0";
+			logger.info(q);
+			PreparedStatement st0 =  processor1.getJDBCconnection().prepareStatement(q);
+			if (callback != null)
+				callback.setParameters(st0);
+			ResultSet rs = st0.executeQuery();
+			while (rs.next())
+			{
+				if (queryAllConnections)
+				{
+					JDBCPeopleCodeContainer.KeySet key = new KeySet(rs);
+					if (processedKeys.contains(key.compositeKey()))
+					{
+						logger.info("Already processed key " + key.compositeKey() + "; skipping");
+						continue;
+					}
+					processedKeys.add(key.compositeKey());
+				}
+				for (ContainerProcessor processor: processors)
+				{
+					JDBCPeopleCodeContainer c = new JDBCPeopleCodeContainer(processor.getJDBCconnection(), processor.getDBowner(), rs);
+					if (c.hasFoundPeopleCode())
+					{
+						processor.process(c);
+						logger.info("Completed JDBCPeopleCodeContainer for tag " + processor.getTag() );
+					}
+					else
+						logger.info("No PeopleCode found in environment "+ processor.getTag() + "; nothing to process");
+				}
+				countPPC++;
+			}
+			if (!queryAllConnections)
+			{
+				logger.info("Only processing Base environment");
+				continue;
+			}
 		}
-		dbconn.close();
 	}
 	/*
 	 * select 
@@ -120,64 +165,88 @@ td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT
 from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID 
 ---and td.SQLID in (select OBJECTVALUE1 from PSPROJECTITEM where PROJECTNAME='TEST2')
 	 */
-	static void processSQLs( ResultSet rs, ContainerProcessor processor) throws SQLException, IOException
+	static void processSQLs( ResultSet rs, List<ContainerProcessor> processors) throws SQLException, IOException
 	{
+		for (ContainerProcessor processor: processors)
+			processor.setPs(processor.getJDBCconnection().prepareStatement(
+					"select td.SQLTEXT, d.LASTUPDDTTM, d.LASTUPDOPRID from " 
+					+ processor.getDBowner() + "PSSQLDEFN d, " 
+					+ processor.getDBowner() + "PSSQLTEXTDEFN td where d.SQLID=td.SQLID and td.SQLID = ?"));
 		while (rs.next())
 		{
 			String recName = rs.getString("SQLID");
-			String sqlStr = rs.getString("SQLTEXT");
-			if (recName == null || sqlStr == null)
+			if (recsProcessed.contains(recName))
+			{
+				logger.info("Already processed SQL ID "+ recName + "; skipping");
 				continue;
-			Date date = new Date(rs.getTimestamp("LASTUPDDTTM").getTime());
-			SQLobject sql = new SQLobject(recName.trim(), sqlStr.trim(), rs.getString("LASTUPDOPRID"), date);
-			processor.processSQL(sql);
+			}
+			recsProcessed.add(recName);
+			for (ContainerProcessor processor: processors)
+			{
+				processor.getPs().setString(1, recName);
+				ResultSet rs2 = processor.getPs().executeQuery();
+				if (rs2.next())
+				{
+					String sqlStr = rs2.getString("SQLTEXT");
+					if (recName == null || sqlStr == null)
+						continue;
+					Date date = new Date(rs2.getTimestamp("LASTUPDDTTM").getTime());
+					SQLobject sql = new SQLobject(recName.trim(), sqlStr.trim(), rs2.getString("LASTUPDOPRID"), date);
+					processor.processSQL(sql);
+				}
+				else
+					logger.info("SQLID '" + recName + "' not found in environment " + processor.getTag());
+			}
 			countSQL++;
 		}
 	}
 
-	public static void processSQLforProject(String projectName, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
+	public static void processSQLforProject(String projectName, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td, " 
 				+ dbowner + "PSPROJECTITEM pi  where d.SQLID=td.SQLID and d.SQLID=pi.OBJECTVALUE1 and pi.OBJECTID1=65 and pi.OBJECTVALUE2=td.SQLTYPE and DBTYPE = ' ' and pi.PROJECTNAME='" + projectName + "'";  
-		getJDBCconnection();
 		Statement st0 =  dbconn.createStatement();
 		logger.info(q);
 		ResultSet rs = st0.executeQuery(q);		
-		processSQLs(rs, processor);
+		processSQLs(rs, processors);
 		st0.close();
 	}
 	
 	
-	public static void processSQLsinceDate( java.sql.Timestamp date, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
+	public static void processSQLsinceDate( java.sql.Timestamp date, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
-			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td " 
-				+ " where td.SQLTYPE=2 and d.SQLID=td.SQLID and d.LASTUPDDTTM >= ?";  
-		getJDBCconnection();
-		PreparedStatement st0 =  dbconn.prepareStatement(q);
-		st0.setTimestamp(1, date);
-		logger.info(q);
-		ResultSet rs = st0.executeQuery();		
-		processSQLs(rs, processor);
-		st0.close();
+		// query all environments with the query on LASTUPDDTTM" 
+		for (ContainerProcessor processor: processors)
+		{
+			String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
+				+ processor.getDBowner() + "PSSQLDEFN d, " + processor.getDBowner()+ "PSSQLTEXTDEFN td " 
+					+ " where td.SQLTYPE=2 and d.SQLID=td.SQLID and d.LASTUPDDTTM >= ?";  
+			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q);
+			st0.setTimestamp(1, date);
+			logger.info(q);
+			ResultSet rs = st0.executeQuery();		
+			processSQLs(rs, processors);
+			st0.close();
+		}
 	}
 
+	/*
 	public static void writeCustomSQLtoFile(File baseDir) throws ClassNotFoundException, SQLException, IOException
 	{
 		processCustomSQLs( new WriteDecodedPPCtoDirectoryTree(baseDir));
 	}
+	*/
 	
-	public static void processCustomSQLs(ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
+	public static void processCustomSQLs(List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td " 
 				+ " where td.SQLTYPE=2 and d.SQLID=td.SQLID and d.LASTUPDOPRID <> 'PPLSOFT'";  
-		getJDBCconnection();
 		PreparedStatement st0 =  dbconn.prepareStatement(q);
 		logger.info(q);
 		ResultSet rs = st0.executeQuery();		
-		processSQLs(rs, processor);
+		processSQLs(rs, processors);
 		st0.close();
 	}
 		
@@ -187,7 +256,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2= pc.OBJECTID2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3 and pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4)"
 			+ "  or (pi.OBJECTTYPE  = 43 and pi.OBJECTVALUE3 = pc.OBJECTVALUE6))  "
 			+ " and pi.PROJECTNAME='" + projectName + "' and pi.OBJECTTYPE in (8 , 9 ,39 ,40 ,42 ,43 ,44 ,46 ,47 ,48 ,58)";
-		return getPeopleCodeContainers( where);
+		return getPeopleCodeContainers( where, false);
 	}
 	
 	public static Properties readProperties() throws IOException
@@ -202,13 +271,13 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	public static List<PeopleCodeContainer> getPeopleCodeContainersForApplicationPackage(String packageName) throws ClassNotFoundException, SQLException
 	{
 		String where = "  , " + dbowner + "PSPACKAGEDEFN pk  where pk.PACKAGEROOT  = '" + packageName + "' and pk.PACKAGEID    = pc.OBJECTVALUE1    and pc.OBJECTVALUE1 = pk.PACKAGEROOT ";
-		return getPeopleCodeContainers( where);
+		return getPeopleCodeContainers( where, false);
 	}
 	
 	public static List<PeopleCodeContainer> getAllPeopleCodeContainers() throws ClassNotFoundException, SQLException
 	{
 		String where = " where (1=1) ";
-		return getPeopleCodeContainers( where);
+		return getPeopleCodeContainers( where, false);
 	}
 	
 	public static void writeToDirectoryTree( List<PeopleCodeContainer> containers, File rootDir) throws IOException, SQLException, ClassNotFoundException
@@ -233,22 +302,25 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		writeToDirectoryTree(containers, rootDir);
 	}
 	
-	public static void processProject( String projectName, ContainerProcessor processor) throws IOException, SQLException, ClassNotFoundException
+	public static void processProject( String projectName, List<ContainerProcessor> processors) throws IOException, SQLException, ClassNotFoundException
 	{
 		logger.info("Starting to write PeopleCode for project " + projectName );
 		String whereClause = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
 	    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2= pc.OBJECTID2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3 and pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4)"
 		+ "  or (pi.OBJECTTYPE  = 43 and pi.OBJECTVALUE3 = pc.OBJECTVALUE6))  "
 		+ " and pi.PROJECTNAME='" + projectName + "' and pi.OBJECTTYPE in (8 , 9 ,39 ,40 ,42 ,43 ,44 ,46 ,47 ,48 ,58)";
-		makeAndProcessContainers( whereClause, processor);
+		makeAndProcessContainers( whereClause, false, processors);
 		logger.info("Finished writing .pcode files for project " + projectName);		
-		processSQLforProject(projectName, processor); 		
+		processSQLforProject(projectName, processors); 		
 		logger.info("Finished writing .sql files for project " + projectName);		
 	}
 
 	
-	static class WriteToDirectoryTree implements ContainerProcessor
+	static class WriteToDirectoryTree extends ContainerProcessor
 	{
+		String dBowner;
+		Connection JDBCconnection;
+		
 		PToolsObjectToFileMapper mapper;
 		WriteToDirectoryTree( PToolsObjectToFileMapper _mapper)
 		{
@@ -278,27 +350,42 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			pw.println(ProjectReader.df2.format(sql.lastChanged));
 			pw.close();
 			countSQL++;
+		}
+		public String getDBowner() {
+			return dBowner;
+		}
+		public void setDBowner(String dBowner) {
+			this.dBowner = dBowner;
+		}
+		public Connection getJDBCconnection() {
+			return JDBCconnection;
+		}
+		public void setJDBCconnection(Connection jDBCconnection) {
+			JDBCconnection = jDBCconnection;
 		}		
 	}
 	
-	static void writeToDirectoryTree( String whereClause, File rootDir) throws ClassNotFoundException, SQLException, IOException
+	static void writeToDirectoryTree( String whereClause, boolean queryAllConnections, File rootDir) throws ClassNotFoundException, SQLException, IOException
 	{
 		logger.info("Starting to write bin/ref files to directory tree " + rootDir);
-		makeAndProcessContainers( whereClause, new WriteToDirectoryTree(rootDir));
+		List<ContainerProcessor> processors = new ArrayList<ContainerProcessor>();
+		processors.add(new WriteToDirectoryTree(rootDir));
+		makeAndProcessContainers( whereClause, queryAllConnections, processors);
 		logger.info("Finished writing bin/ref files");
 	}
 
 	public static void writeAllPPCtoDirectoryTree( File rootDir) throws IOException, SQLException, ClassNotFoundException
 	{
 		logger.info("Retrieving all PeopleCode bytecode in database" );
-		writeToDirectoryTree(" where 1=1 ", rootDir);
+		writeToDirectoryTree(" where 1=1 ", false, rootDir);
 	}
 
-	static class WriteDecodedPPCtoDirectoryTree implements ContainerProcessor
+	static class WriteDecodedPPCtoDirectoryTree extends ContainerProcessor
 	{
 		PToolsObjectToFileMapper mapper;
 		String extension;
 		PeopleCodeParser parser = new PeopleCodeParser();
+		
 		WriteDecodedPPCtoDirectoryTree( PToolsObjectToFileMapper _mapper, String _extension)
 		{
 			mapper = _mapper;
@@ -360,10 +447,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}		
 	}
 		
-	public static void writeDecodedPPC( String whereClause, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
+	public static void writeDecodedPPC( String whereClause, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
 		logger.info("Starting to write decoded PeopleCode segments");
-		makeAndProcessContainers( whereClause, processor);
+		makeAndProcessContainers( whereClause, false, processors);
 		logger.info("Finished writing .pcode files");		
 	}
 	
@@ -376,22 +463,24 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 	}	
 	
-	public static void writeDecodedRecentPPC( java.sql.Timestamp fromDate, ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
+	public static void writeDecodedRecentPPC( java.sql.Timestamp fromDate, 
+			List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
 		logger.info("Starting to write decoded PeopleCode with time stamp after " + fromDate );
 		FileWriter f = new FileWriter(lastTimeFile);
 		f.write(ProjectReader.df2.format(new Date()));
 		f.close();
 		String whereClause = " where LASTUPDDTTM > ?";
-		makeAndProcessContainers( whereClause, processor, new DateSetter(fromDate));
+		// with queryAllConnections = true, so that all environments are tracked with this query:
+		makeAndProcessContainers( whereClause, true, processors, new DateSetter(fromDate));
 		logger.info("Finished writing .pcode files");		
 	}
 
-	public static void writeCustomizedPPC( ContainerProcessor processor) throws ClassNotFoundException, SQLException, IOException
+	public static void writeCustomizedPPC( List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
 		logger.info("Starting to write customized PeopleCode files ");
 		String whereClause = " where pc.LASTUPDOPRID <> 'PPLSOFT'";
-		makeAndProcessContainers( whereClause, processor);
+		makeAndProcessContainers( whereClause, false, processors);
 		logger.info("Finished writing .pcode files");		
 	}	
 	
@@ -399,45 +488,101 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	{
 		System.out.println("Ready; processed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)");		
 	}
+	
+	@SuppressWarnings("unchecked")
+	static ContainerProcessorFactory getContainerProcessorFactory( String type) throws ClassNotFoundException, InstantiationException, IllegalAccessException
+	{
+		Class<ContainerProcessorFactory> factoryClass = null;
+		if ("ProcessToFile".equals(type))
+		{
+			factoryClass = (Class<ContainerProcessorFactory>) Class.forName("decodepcode.FileProcessorFactory");
+		}
+		else
+			if ("ProcessToSVN".equals(type))
+			{
+					factoryClass = (Class<ContainerProcessorFactory>) 
+						Class.forName("decodepcode.svn.SubversionProcessorFactory");
+			}
+			else
+				throw new IllegalArgumentException("Don't have a processor class for " + type );
+		return (ContainerProcessorFactory) factoryClass.newInstance();
+		
+	}
 	/**
 	 * Run from command line:
 	 *  Arguments: project name, or 'since' + date (in yyyy/MM/dd format), or 'since-days' + #days, or 'custom'"
 	 * @param a
 	 */
-	@SuppressWarnings("unchecked")
+	
 	public static void main(String[] a)
 	{
 		try {
 			if (a.length == 0 || !a[0].startsWith("Process"))
 				throw new IllegalArgumentException("First argument should be ProcessToFile or similar");			
 			ContainerProcessorFactory factory = null;
-			Class<ContainerProcessorFactory> factoryClass = null;
-			if (a[0].equals("ProcessToFile"))
-			{
-				factoryClass = (Class<ContainerProcessorFactory>) Class.forName("decodepcode.FileProcessorFactory");
-				File dir =	new File(".", "output");
-				System.out.println("Output in " + dir.getAbsolutePath() );
-			}
-			else
-				if (a[0].equals("ProcessToSVN"))
-				{
-						factoryClass = (Class<ContainerProcessorFactory>) 
-							Class.forName("decodepcode.svn.SubversionProcessorFactory");
-				}
-				else
-					throw new IllegalArgumentException("Don't have a processor class for " + a[0] );
-			
-			factory = (ContainerProcessorFactory) factoryClass.newInstance();
-			factory.setParameters(props);
-			ContainerProcessor processor = factory.getContainerProcessor();
 
+			factory = getContainerProcessorFactory(a[0]);
+			factory.setParameters(props, "");
+			List<ContainerProcessor> processors = new ArrayList<ContainerProcessor>();
+			ContainerProcessor processor = factory.getContainerProcessor();
+			processor.setTag("Base");
+			
+			processors.add(processor);
+
+			for (Object key1: props.keySet())
+			{
+				String key = (String) key1;
+				if (key.toLowerCase().startsWith("process"))
+				{
+					String suffix = key.substring("process".length());
+					String processType = props.getProperty(key);
+					try 
+					{
+						ContainerProcessorFactory factory1 = getContainerProcessorFactory(processType);
+						factory1.setParameters(props, suffix);
+						ContainerProcessor processor1 = factory1.getContainerProcessor();
+						processor1.setJDBCconnection(getJDBCconnection(suffix));
+						String schema = props.getProperty("dbowner" + suffix);
+						schema = schema == null || schema.length() == 0? "" : schema + ".";
+						processor1.setDBowner(schema);
+						processor1.setTag(suffix);
+						processors.add(processor1);
+					} catch (IllegalArgumentException ex)
+					{
+						logger.severe("Process type for "+ key + " not known - skipping");
+					}
+					catch (SQLException ex)
+					{
+						logger.severe(ex.getMessage());
+						logger.severe("JDBC connection parameters for processor with suffix '" + suffix + "' absent or invalid");
+					}
+				}
+			}
+			
+			if (a.length >= 2 && a[1].toLowerCase().endsWith(".xml"))
+			{
+				ProjectReader p = new ProjectReader();
+				for (ContainerProcessor processor1: processors)
+				{
+					p.setProcessor(processor1);
+					p.readProject( new File(a[1]));
+					writeStats();
+				}
+				return;
+			}
+
+			// not reading project, so need to have JDBC Connection to read bytecode
+			dbconn = getJDBCconnection("");
+			processor.setJDBCconnection(dbconn);
+			processor.setDBowner(dbowner);
+			
 			if (a.length > 2 && "since".equalsIgnoreCase(a[1]))
 			{
 				SimpleDateFormat sd = new SimpleDateFormat("yyyy/MM/dd");
 				java.util.Date time = sd.parse(a[2]);
 				java.sql.Timestamp d = new java.sql.Timestamp(time.getTime());
-				writeDecodedRecentPPC(d, processor);
-				processSQLsinceDate( d, processor);
+				writeDecodedRecentPPC(d, processors);
+				processSQLsinceDate( d, processors);
 				writeStats();
 				return;
 			}
@@ -447,8 +592,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				java.util.Date time = new Date();
 				long days = Long.parseLong(a[2]);
 				java.sql.Timestamp d = new java.sql.Timestamp(time.getTime() - 24 * 60 * 60 * 1000 * days);
-				writeDecodedRecentPPC(d, processor);
-				processSQLsinceDate( d, processor);
+				writeDecodedRecentPPC(d, processors);
+				processSQLsinceDate( d, processors);
 				writeStats();
 				return;
 			}
@@ -470,32 +615,23 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 					return;
 				}
 				logger.info("Processing objects modified since last time = " + line);
-				writeDecodedRecentPPC(new Timestamp(d.getTime()), processor);
-				processSQLsinceDate( new Timestamp(d.getTime()), processor);
+				writeDecodedRecentPPC(new Timestamp(d.getTime()), processors);
+				processSQLsinceDate( new Timestamp(d.getTime()), processors);
 				writeStats();
 				return;				
 			}
 			
 			if (a.length >= 2 && "custom".equalsIgnoreCase(a[1]))
 			{
-				writeCustomizedPPC(processor);
-				processCustomSQLs( processor);
+				writeCustomizedPPC(processors);
+				processCustomSQLs( processors);
 				writeStats();
 				return;				
 			}
-
-			if (a.length >= 2 && a[1].toLowerCase().endsWith(".xml"))
-			{
-				ProjectReader p = new ProjectReader();
-				p.setProcessor(processor);
-				p.readProject( new File(a[1]));
-				writeStats();
-			}
-
-			
+	
 			if (a.length == 2)
 			{
-				processProject(a[1], processor);
+				processProject(a[1], processors);
 				writeStats();
 				return;
 			}

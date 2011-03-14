@@ -4,7 +4,7 @@ import java.util.Date;
 
 public class SQLobject implements PeopleToolsObject 
 {
-	String recName, sql, lastChangedBy;
+	String recName, sql, lastChangedBy, source;
 	Date lastChanged;
 	
 	public SQLobject( String _recName, String _sql, String _lastChangedBy, Date _lastChanged)
@@ -37,6 +37,14 @@ public class SQLobject implements PeopleToolsObject
 
 	public String getSql() {
 		return sql;
+	}
+
+	public String getSource() {
+		return source;
+	}
+
+	public void setSource(String source) {
+		this.source = source;
 	}
 
 }

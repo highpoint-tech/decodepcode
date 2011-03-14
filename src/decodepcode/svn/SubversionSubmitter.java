@@ -1,16 +1,22 @@
 package decodepcode.svn;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
-//import java.text.SimpleDateFormat;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import org.tmatesoft.svn.core.SVNErrorCode;
 import org.tmatesoft.svn.core.SVNErrorMessage;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNNodeKind;
+import org.tmatesoft.svn.core.SVNProperties;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationManager;
 import org.tmatesoft.svn.core.internal.io.dav.DAVRepositoryFactory;
@@ -22,14 +28,12 @@ import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
-//import decodepcode.Controller;
+import decodepcode.ContainerProcessor;
 import decodepcode.DirTreePTmapper;
 import decodepcode.PToolsObjectToFileMapper;
 import decodepcode.PeopleCodeParser;
 import decodepcode.ProjectReader;
 import decodepcode.SQLobject;
-//import decodepcode.Controller.WriteDecodedPPCtoDirectoryTree;
-import decodepcode.ContainerProcessor;
 
 /**
  * 
@@ -80,16 +84,40 @@ public class SubversionSubmitter
         SVNNodeKind nodeKind = repository.checkPath( filePath, -1);
         if (nodeKind == SVNNodeKind.DIR) 
             throw new SVNException(SVNErrorMessage.create(SVNErrorCode.UNKNOWN, "Entry at URL ''{0}'' is a directory while a file was expected", filePath));
-        boolean doesNotExist = nodeKind == SVNNodeKind.NONE; 
-    	ISVNEditor editor = repository.getCommitEditor( commitStr, null);
-        editor.openRoot(-1);
+        boolean doesNotExist = nodeKind == SVNNodeKind.NONE;
+        ISVNEditor editor;
         if (doesNotExist)
         {
+        	editor = repository.getCommitEditor( commitStr, null);
+            editor.openRoot(-1);
         	logger.info("Creating file " + filePath);
         	editor.addFile(filePath, null, -1);
         }
         else
         {
+        	ByteArrayOutputStream baos = new ByteArrayOutputStream( );
+        	SVNProperties fileProperties = new SVNProperties( );
+        	repository.getFile( filePath , -1 , fileProperties , baos );
+        	String remoteChecksum = fileProperties.getStringValue("svn:entry:checksum");
+        	try {
+        		MessageDigest complete = MessageDigest.getInstance("MD5");
+        		complete.update(data, 0, data.length);
+        		byte[] checkSumBytes= complete.digest();
+        		String checkSum = "";
+        	     for (int i=0; i < checkSumBytes.length; i++) 
+        	    	checkSum +=
+        	          Integer.toString( ( checkSumBytes[i] & 0xff ) + 0x100, 16).substring( 1 );
+        	     logger.fine("Remote MD5: " + remoteChecksum);
+        	     logger.fine("New    MD5: " + checkSum);
+        	     if (remoteChecksum.equals(checkSum))
+        	     {
+        	    	 logger.info("New text identical to remote SVN file - not committing " + filePath);
+        	    	 return;
+        	     }
+        	} catch (NoSuchAlgorithmException e) {
+			}
+        	editor = repository.getCommitEditor( commitStr, null);
+            editor.openRoot(-1);
         	logger.info("Updating file " + filePath);
 	        editor.openDir(dirPath, -1);
 	        editor.openFile(filePath, -1);		        
@@ -125,8 +153,9 @@ public class SubversionSubmitter
     	}
     }
     
-    public static class SubversionContainerProcessor implements ContainerProcessor
+    public static class SubversionContainerProcessor extends ContainerProcessor
 	{
+    	
 		SVNRepository repository;
 		String basePath;
 		PToolsObjectToFileMapper mapper;
@@ -158,8 +187,9 @@ public class SubversionSubmitter
 				if (user != null)
 					repository.setAuthenticationManager(user);
 				addFile(repository, path, 
-					"Saved at " + ProjectReader.df2.format(c.getLastChangedDtTm()) + " by " + c.getLastChangedBy(), 
-					w.toString().getBytes());
+					"Saved at " + ProjectReader.df2.format(c.getLastChangedDtTm()) + " by " + c.getLastChangedBy()
+					+ (c.getSource() == null? "" : " (source: " + c.getSource() + ")")  , 
+					w.toString().getBytes() );
 			} catch (SVNException se)
 			{
 				IOException e = new IOException("Error submitting pcode to Subversion");
@@ -185,7 +215,7 @@ public class SubversionSubmitter
 				e.initCause(se);
 				throw e; 				
 			}
-		}		
+		}
 	}
 	
 	/**
@@ -212,7 +242,9 @@ public class SubversionSubmitter
 			logger.info("Committed PeopleCode segments; now processing SQLs");
 			decodepcode.Controller.processSQLsinceDate( d, processor);
 			*/
-			decodepcode.Controller.processProject("TEST2", processor);
+			List<ContainerProcessor> processors = new ArrayList<ContainerProcessor>();
+			processors.add(processor);
+			decodepcode.Controller.processProject("TEST2", processors);
 			logger.info("Finished");		
 
 				

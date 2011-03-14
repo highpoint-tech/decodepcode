@@ -14,7 +14,7 @@ public abstract class PeopleCodeContainer implements PeopleToolsObject
 {
 	int pos;
 	byte[] bytes;
-	String lastChangedBy;
+	String lastChangedBy, source;
 	Date lastChangedDtTm;
 	
 	public boolean hasPlainPeopleCode() 
@@ -124,5 +124,11 @@ public abstract class PeopleCodeContainer implements PeopleToolsObject
 	}
 	public void setLastChangedDtTm(Date lastChangedDtTm) {
 		this.lastChangedDtTm = lastChangedDtTm;
+	}
+	public String getSource() {
+		return source;
+	}
+	public void setSource(String source) {
+		this.source = source;
 	}
 }
