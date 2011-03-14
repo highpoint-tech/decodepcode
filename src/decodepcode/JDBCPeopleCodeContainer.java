@@ -151,7 +151,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 		keys = new KeySet(rs, false);
 		Statement st = dbconn.createStatement();
 		
-		String q ="select PROGTXT, LASTUPDDTTM, LASTUPDOPRID from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " order by PROGSEQ";
+		String q ="select LASTUPDDTTM, LASTUPDOPRID, PROGTXT from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " order by PROGSEQ";
 		logger.info(q);
 		ResultSet rs2 = st.executeQuery(q);
 		while (rs2.next())
