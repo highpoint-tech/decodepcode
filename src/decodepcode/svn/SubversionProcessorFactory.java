@@ -54,8 +54,10 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 	{
 		String url = properties.getProperty("svnurl" + suffix);
 		if (url == null)
+			url = properties.getProperty("svnurl");
+		if (url == null)
 		{
-			logger.severe("No svnurl" + suffix + " entry in properties");
+			logger.severe("No svnurl entry in properties");
 			return;
 		}
 		try {
