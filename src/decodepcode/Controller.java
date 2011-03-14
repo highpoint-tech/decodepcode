@@ -529,6 +529,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			
 			processors.add(processor);
 
+			boolean inputIsPToolsProject = a.length >= 2 && a[1].toLowerCase().endsWith(".xml");
 			for (Object key1: props.keySet())
 			{
 				String key = (String) key1;
@@ -541,10 +542,13 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 						ContainerProcessorFactory factory1 = getContainerProcessorFactory(processType);
 						factory1.setParameters(props, suffix);
 						ContainerProcessor processor1 = factory1.getContainerProcessor();
-						processor1.setJDBCconnection(getJDBCconnection(suffix));
-						String schema = props.getProperty("dbowner" + suffix);
-						schema = schema == null || schema.length() == 0? "" : schema + ".";
-						processor1.setDBowner(schema);
+						if (!inputIsPToolsProject)
+						{
+							processor1.setJDBCconnection(getJDBCconnection(suffix));
+							String schema = props.getProperty("dbowner" + suffix);
+							schema = schema == null || schema.length() == 0? "" : schema + ".";
+							processor1.setDBowner(schema);
+						}
 						processor1.setTag(suffix);
 						processors.add(processor1);
 					} catch (IllegalArgumentException ex)
@@ -559,16 +563,24 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				}
 			}
 			
-			if (a.length >= 2 && a[1].toLowerCase().endsWith(".xml"))
+			if (inputIsPToolsProject)
 			{
+				String target = (a.length >=3) ? a[2] : "Base";
 				ProjectReader p = new ProjectReader();
+				boolean found = false;
 				for (ContainerProcessor processor1: processors)
-				{
-					p.setProcessor(processor1);
-					p.readProject( new File(a[1]));
-					writeStats();
-				}
-				return;
+					if (target.equals(processor1.getTag()))
+					{
+						File f = new File(a[1]);
+						System.out.println("Reading PeopleTools project " + f.getName() + ("Base".equals(target)? "" : ", processing for environment " + target));
+						found = true;
+						p.setProcessor(processor1);
+						p.readProject( f);
+						writeStats();
+					}
+					if (!found)
+						logger.severe("There is no target environment labeled '" + target + "' - file not processed");
+					return;
 			}
 
 			// not reading project, so need to have JDBC Connection to read bytecode
