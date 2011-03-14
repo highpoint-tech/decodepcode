@@ -12,6 +12,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.logging.Logger;
 
+import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -131,6 +132,7 @@ public class ProjectReader
 	{
 		project = new PeopleToolsProject();
 		source = file.getName();
+		processor.aboutToProcess();
 		File dir = new File(System.getProperty("java.io.tmpdir"));
 		if (!dir.exists() || !dir.isDirectory())
 			throw new IOException("Temp dir "+ dir + " not accessible");
@@ -142,6 +144,7 @@ public class ProjectReader
 		w.write(header);
 		int count = 0;
 		logger.info("Starting to process " + file + ", temp file is " + file2);
+		DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 		while( (line = br.readLine()) != null)
 		{
 			if (w ==null)
@@ -156,7 +159,7 @@ public class ProjectReader
 				w.close();
 				count++;
 				logger.fine("Created file # " + count);
-				visit(DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file2), 0);
+				visit(builder.parse(file2), 0);
 				file2.delete();
 				w = null;
 			}
@@ -243,7 +246,8 @@ public static void main(String[] args) {
 			String fileName = new File(xmlFile).getName();
 			String projName = fileName.substring(0, fileName.length() - 4);
 			File dir = new File(".", projName);
-			p.setProcessor(new WriteDecodedPPCtoDirectoryTree(new DirTreePTmapper( dir), "pcode"));
+			ContainerProcessor processor = new WriteDecodedPPCtoDirectoryTree(new DirTreePTmapper( dir), "pcode");
+			p.setProcessor(processor);
 			dir.mkdir();
 			System.out.println("Output in " + dir.getAbsolutePath() );
 			p.readProject( new File(xmlFile));

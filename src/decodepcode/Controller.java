@@ -115,6 +115,8 @@ public class Controller {
 				List<ContainerProcessor> processors, 
 				ParameterSetter callback) throws ClassNotFoundException, SQLException, IOException
 	{
+		for (ContainerProcessor processor0: processors)
+			processor0.aboutToProcess();
 		Set<String> processedKeys = new HashSet<String>();
 		for (ContainerProcessor processor1: processors)
 		{
@@ -320,6 +322,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	{
 		String dBowner;
 		Connection JDBCconnection;
+		private File root;
 		
 		PToolsObjectToFileMapper mapper;
 		WriteToDirectoryTree( PToolsObjectToFileMapper _mapper)
@@ -329,6 +332,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		WriteToDirectoryTree( File rootDir)
 		{
 			this( new DirTreePTmapper(rootDir));
+			root = rootDir;
 		}
 		public void process(PeopleCodeContainer p) throws IOException 
 		{
@@ -362,6 +366,11 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		public void setJDBCconnection(Connection jDBCconnection) {
 			JDBCconnection = jDBCconnection;
+		}
+		@Override
+		public void aboutToProcess() {
+			if (root != null)
+				System.out.println("Output in " + root.getAbsolutePath() );			
 		}		
 	}
 	
@@ -384,16 +393,21 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	{
 		PToolsObjectToFileMapper mapper;
 		String extension;
+		File root;
+		
 		PeopleCodeParser parser = new PeopleCodeParser();
 		
 		WriteDecodedPPCtoDirectoryTree( PToolsObjectToFileMapper _mapper, String _extension)
 		{
 			mapper = _mapper;
+			if (mapper instanceof DirTreePTmapper)
+				root = ((DirTreePTmapper) mapper).rootDir;
 			extension = _extension;
 		}
 		WriteDecodedPPCtoDirectoryTree( File rootDir, String _extension)
 		{
 			this( new DirTreePTmapper(rootDir), _extension);
+			root = rootDir;
 		}
 		WriteDecodedPPCtoDirectoryTree( File rootDir)
 		{
@@ -444,6 +458,12 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				pw.close();
 			}
 			countSQL++;			
+		}
+		@Override
+		public void aboutToProcess() {
+			if (root != null)
+				System.out.println("Output in " + root.getAbsolutePath() );			
+			
 		}		
 	}
 		
@@ -563,6 +583,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				}
 			}
 			
+			
+			
 			if (inputIsPToolsProject)
 			{
 				String target = (a.length >=3) ? a[2] : "Base";
@@ -620,13 +642,18 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				String line = br.readLine();
 				br.close();
 				Date d;
+				String timeOffset = null;
 				try {
 					d = ProjectReader.df2.parse(line);
+					timeOffset = props.getProperty("last-time-offset");
+					if (timeOffset != null)
+						d = new Date(d.getTime() - Long.parseLong(timeOffset) * 60 * 1000);
 				} catch (ParseException e) {
-					logger.severe("Found " + lastTimeFile + ", but can't parse its contents to a date/time");
+					logger.severe("Found " + lastTimeFile + ", but can't parse its contents to a date/time: " + e.getMessage());
 					return;
 				}
-				logger.info("Processing objects modified since last time = " + line);
+				logger.info("Processing objects modified since last time = " + line 
+						+ (timeOffset == null? "" : "( with a " + timeOffset + "-min offset)"));
 				writeDecodedRecentPPC(new Timestamp(d.getTime()), processors);
 				processSQLsinceDate( new Timestamp(d.getTime()), processors);
 				writeStats();

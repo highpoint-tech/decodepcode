@@ -20,12 +20,10 @@ public class FileProcessorFactory implements ContainerProcessorFactory
 			outDir = new File(outDirStr);
 		else
 			outDir = new File(".", "output"); 
-		System.out.println("Output in " + outDir.getAbsolutePath() );
-		
 	}
 
 	public PToolsObjectToFileMapper getMapper() 
 	{
-			return new DirTreePTmapper( outDir );
+		return new DirTreePTmapper( outDir );
 	}
 }

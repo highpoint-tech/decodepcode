@@ -216,6 +216,11 @@ public class SubversionSubmitter
 				throw e; 				
 			}
 		}
+
+		@Override
+		public void aboutToProcess() {
+			System.out.println("Submitting to SVN, base path = " + basePath);			
+		}
 	}
 	
 	/**

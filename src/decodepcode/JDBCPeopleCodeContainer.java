@@ -267,6 +267,11 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 		}
 		public void processSQL(SQLobject sql) throws IOException {
 			sqlList.add(sql);
+		}
+		@Override
+		public void aboutToProcess() {
+			// TODO Auto-generated method stub
+			
 		}		
 	}
 	

@@ -10,6 +10,7 @@ public abstract class ContainerProcessor
 	private Connection JDBCconnection;
 	private PreparedStatement ps;
 
+	abstract public void aboutToProcess(); 
 	abstract public void process( PeopleCodeContainer c) throws IOException;
 	abstract public void processSQL( SQLobject sql) throws IOException;
 	public String getDBowner() {
