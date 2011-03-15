@@ -65,9 +65,12 @@ public class SubversionSubmitter
     	addDirPath(repository, parentDir);
     	ISVNEditor editor = repository.getCommitEditor("create path", null);
         editor.openRoot(-1);
+        String[] dirs = dirPath.split("/");
+        for (int i = 0; i < dirs.length -1; i++)
+        	editor.openDir(dirs[i], -1);
         editor.addDir(dirPath, null, -1);
-        editor.closeDir();
-        editor.closeDir();
+        for (int i = 0; i < dirs.length; i++)
+        	editor.closeDir();
         editor.closeEdit();
     }
     
@@ -90,6 +93,9 @@ public class SubversionSubmitter
         {
         	editor = repository.getCommitEditor( commitStr, null);
             editor.openRoot(-1);
+            String[] dirs = dirPath.split("/");
+            for (int i = 0; i < dirs.length; i++)
+            	editor.openDir(dirs[i], -1);
         	logger.info("Creating file " + filePath);
         	editor.addFile(filePath, null, -1);
         }
@@ -119,7 +125,9 @@ public class SubversionSubmitter
         	editor = repository.getCommitEditor( commitStr, null);
             editor.openRoot(-1);
         	logger.info("Updating file " + filePath);
-	        editor.openDir(dirPath, -1);
+            String[] dirs = dirPath.split("/");
+            for (int i = 0; i < dirs.length; i++)
+            	editor.openDir(dirs[i], -1);
 	        editor.openFile(filePath, -1);		        
         }
         editor.applyTextDelta(filePath, null);
@@ -229,6 +237,8 @@ public class SubversionSubmitter
 	public static void main(String[] args) 
 	{
 		try {
+			
+			/*
 			FixedAuthManagerMapper authMapper = new FixedAuthManagerMapper();
 			authMapper.addCredentials("PPLTOOLS" , "harry", "secret");
 			authMapper.addCredentials("VP1", "sally", "secret");
@@ -238,7 +248,7 @@ public class SubversionSubmitter
 					new DirTreePTmapper(), 
 					authMapper);
 			logger.info("Starting to commit to Subversion");
-/*			
+			
 			SimpleDateFormat sd = new SimpleDateFormat("yyyy/MM/dd");
 			java.util.Date time = sd.parse("2010/06/01");
 			java.sql.Timestamp d = new java.sql.Timestamp(time.getTime());
@@ -246,11 +256,11 @@ public class SubversionSubmitter
 			decodepcode.Controller.makeAndProcessContainers( whereClause, processor, new decodepcode.Controller.DateSetter(d));
 			logger.info("Committed PeopleCode segments; now processing SQLs");
 			decodepcode.Controller.processSQLsinceDate( d, processor);
-			*/
 			List<ContainerProcessor> processors = new ArrayList<ContainerProcessor>();
 			processors.add(processor);
 			decodepcode.Controller.processProject("TEST2", processors);
 			logger.info("Finished");		
+			*/
 
 				
 			} catch (Exception e) {
