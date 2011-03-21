@@ -792,7 +792,12 @@ private static class BinWithObject implements PeopleToolsObject
 		// TODO Auto-generated method stub
 		return null;
 	}	
-	public String getSource() { return "bin-only test object";} 
+	public String getSource() { 
+		return "bin-only test object";
+	}
+	public int[] getKeyTypes() {
+		return CreateProjectDefProcessor.getObjTypesFromPCType(type);
+	} 
 }
 
 static List<BinWithObject> binFiles;

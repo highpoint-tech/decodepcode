@@ -72,9 +72,9 @@ public class Controller {
 		}
 	}
 	
-	public static List<PeopleCodeContainer> getPeopleCodeContainers(String whereClause, boolean queryAllConnections) throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeObject> getPeopleCodeContainers(String whereClause, boolean queryAllConnections) throws ClassNotFoundException, SQLException
 	{
-		List<PeopleCodeContainer> list = new ArrayList<PeopleCodeContainer>();
+		List<PeopleCodeObject> list = new ArrayList<PeopleCodeObject>();
 		StoreInList s = new StoreInList(list, null);
 		List<ContainerProcessor> processors = new ArrayList<ContainerProcessor>();
 		processors.add(s);
@@ -159,6 +159,8 @@ public class Controller {
 				continue;
 			}
 		}
+		for (ContainerProcessor processor0: processors)
+			processor0.finishedProcessing();
 	}
 	/*
 	 * select 
@@ -252,7 +254,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		st0.close();
 	}
 		
-	public static List<PeopleCodeContainer> getPeopleCodeContainersForProject(Properties props, String projectName) throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeObject> getPeopleCodeContainersForProject(Properties props, String projectName) throws ClassNotFoundException, SQLException
 	{
 		String where = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
 		    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2= pc.OBJECTID2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3 and pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4)"
@@ -270,28 +272,30 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		return props;
 	}
 	
-	public static List<PeopleCodeContainer> getPeopleCodeContainersForApplicationPackage(String packageName) throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeObject> getPeopleCodeContainersForApplicationPackage(String packageName) throws ClassNotFoundException, SQLException
 	{
 		String where = "  , " + dbowner + "PSPACKAGEDEFN pk  where pk.PACKAGEROOT  = '" + packageName + "' and pk.PACKAGEID    = pc.OBJECTVALUE1    and pc.OBJECTVALUE1 = pk.PACKAGEROOT ";
 		return getPeopleCodeContainers( where, false);
 	}
 	
-	public static List<PeopleCodeContainer> getAllPeopleCodeContainers() throws ClassNotFoundException, SQLException
+	public static List<PeopleCodeObject> getAllPeopleCodeContainers() throws ClassNotFoundException, SQLException
 	{
 		String where = " where (1=1) ";
 		return getPeopleCodeContainers( where, false);
 	}
 	
-	public static void writeToDirectoryTree( List<PeopleCodeContainer> containers, File rootDir) throws IOException, SQLException, ClassNotFoundException
+	public static void writeToDirectoryTree( List<PeopleCodeObject> containers, File rootDir) throws IOException, SQLException, ClassNotFoundException
 	{	
 		logger.info("Writing to directory tree " + rootDir);
 		rootDir.mkdirs();
 		DirTreePTmapper mapper= new DirTreePTmapper(rootDir);
-		for (PeopleCodeContainer p: containers)
+		for (PeopleCodeObject p: containers)
 		{
-			p.writeBytesToFile(mapper.getFile(p, "bin"));
 			if (p instanceof JDBCPeopleCodeContainer)
+			{
+				((JDBCPeopleCodeContainer) p).writeBytesToFile(mapper.getFile(p, "bin"));
 				((JDBCPeopleCodeContainer) p).writeReferencesToFile(mapper.getFile(p, "references"));
+			}
 		}
 		logger.info("Finished writing to directory tree");
 	}
@@ -299,7 +303,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	public static void writeProjectToDirectoryTree2( String project, File rootDir) throws IOException, SQLException, ClassNotFoundException
 	{
 		logger.info("Retrieving bytecode for project " + project);
-		List<PeopleCodeContainer> containers;
+		List<PeopleCodeObject> containers;
 		containers = getPeopleCodeContainersForProject(props, project);
 		writeToDirectoryTree(containers, rootDir);
 	}
@@ -334,11 +338,13 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			this( new DirTreePTmapper(rootDir));
 			root = rootDir;
 		}
-		public void process(PeopleCodeContainer p) throws IOException 
+		public void process(PeopleCodeObject p) throws IOException 
 		{
-			p.writeBytesToFile(mapper.getFile(p, "bin"));
 			if (p instanceof JDBCPeopleCodeContainer)
+			{
+				((JDBCPeopleCodeContainer) p).writeBytesToFile(mapper.getFile(p, "bin"));
 				((JDBCPeopleCodeContainer) p).writeReferencesToFile(mapper.getFile(p, "references"));
+			}
 		}
 		public void processSQL(SQLobject sql) throws IOException {
 			File sqlFile = mapper.getFileForSQL(sql.recName, "sql");
@@ -389,7 +395,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		writeToDirectoryTree(" where 1=1 ", false, rootDir);
 	}
 
-	static class WriteDecodedPPCtoDirectoryTree extends ContainerProcessor
+	public static class WriteDecodedPPCtoDirectoryTree extends ContainerProcessor
 	{
 		PToolsObjectToFileMapper mapper;
 		String extension;
@@ -397,23 +403,23 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		
 		PeopleCodeParser parser = new PeopleCodeParser();
 		
-		WriteDecodedPPCtoDirectoryTree( PToolsObjectToFileMapper _mapper, String _extension)
+		public WriteDecodedPPCtoDirectoryTree( PToolsObjectToFileMapper _mapper, String _extension)
 		{
 			mapper = _mapper;
 			if (mapper instanceof DirTreePTmapper)
 				root = ((DirTreePTmapper) mapper).rootDir;
 			extension = _extension;
 		}
-		WriteDecodedPPCtoDirectoryTree( File rootDir, String _extension)
+		public WriteDecodedPPCtoDirectoryTree( File rootDir, String _extension)
 		{
 			this( new DirTreePTmapper(rootDir), _extension);
 			root = rootDir;
 		}
-		WriteDecodedPPCtoDirectoryTree( File rootDir)
+		public WriteDecodedPPCtoDirectoryTree( File rootDir)
 		{
 			this(rootDir, "pcode");
 		}
-		public void process(PeopleCodeContainer p) throws IOException 
+		public void process(PeopleCodeObject p) throws IOException 
 		{
 			File f = mapper.getFile(p, extension);
 			logger.info("Creating " + f);
@@ -422,13 +428,16 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				if (p.hasPlainPeopleCode()) // why decode the bytecode if we have the plain text...
 					w.write(p.getPeopleCodeText());
 				else
-					parser.parse(p, w);
-				File infoFile = mapper.getFile(p, "last_update");
-				PrintWriter pw = new PrintWriter(infoFile);
-				pw.println(p.getLastChangedBy());
-				pw.println(ProjectReader.df2.format(p.getLastChangedDtTm()));
+					parser.parse(((PeopleCodeContainer) p), w);
+				Date lastUpdt = p.getLastChangedDtTm();
+				if (lastUpdt != null)
+				{
+					File infoFile = mapper.getFile(p, "last_update");
+					PrintWriter pw = new PrintWriter(infoFile);
+					pw.println(p.getLastChangedBy());
+					pw.println(ProjectReader.df2.format(lastUpdt));
 				pw.close();			
-				
+				}
 			} 
 			catch (IOException e) { throw e; }
 			catch (Exception e)
@@ -464,6 +473,9 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			if (root != null)
 				System.out.println("Output in " + root.getAbsolutePath() );			
 			
+		}
+		public PToolsObjectToFileMapper getMapper() {
+			return mapper;
 		}		
 	}
 		

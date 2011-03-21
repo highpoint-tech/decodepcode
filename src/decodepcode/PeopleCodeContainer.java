@@ -10,7 +10,7 @@ import java.io.StringWriter;
 import java.util.Date;
 import java.util.logging.Logger;
 
-public abstract class PeopleCodeContainer implements PeopleToolsObject 
+public abstract class PeopleCodeContainer implements PeopleCodeObject 
 {
 	int pos;
 	byte[] bytes;
@@ -34,7 +34,7 @@ public abstract class PeopleCodeContainer implements PeopleToolsObject
 	String peopleCodeText;
 	Logger logger = Logger.getLogger(getClass().getName());
 	
-	abstract String getCompositeKey();
+	public abstract String getCompositeKey();
 	public abstract String[] getKeys();
 	public abstract int getPeopleCodeType();
 	

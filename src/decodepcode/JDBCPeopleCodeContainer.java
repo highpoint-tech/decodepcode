@@ -34,7 +34,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * Extends the base PeopleCodeContainer with functionality to retrieve the bytecode from the PeopleTools tables
  */
 
-public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements PeopleToolsObject 
+public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements PeopleCodeObject 
 {
 	public static class KeySet
 	{
@@ -206,7 +206,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 	}
 
 	@Override
-	String getCompositeKey()
+	public String getCompositeKey()
 	{
 		return keys.compositeKey();
 	}
@@ -254,14 +254,14 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 	static class StoreInList extends ContainerProcessor
 	{
 		
-		List<PeopleCodeContainer> list;
+		List<PeopleCodeObject> list;
 		List<SQLobject> sqlList;
-		public StoreInList( List<PeopleCodeContainer> _list, List<SQLobject> _sqlList) 
+		public StoreInList( List<PeopleCodeObject> _list, List<SQLobject> _sqlList) 
 		{
 			list = _list;
 			sqlList = _sqlList;
 		}
-		public void process(PeopleCodeContainer c) 
+		public void process(PeopleCodeObject c) 
 		{
 			list.add(c);
 		}
@@ -289,5 +289,9 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 
 	public boolean hasFoundPeopleCode() {
 		return foundPeopleCode;
+	}
+
+	public int[] getKeyTypes() {
+		return keys.objIDs;
 	}
 }

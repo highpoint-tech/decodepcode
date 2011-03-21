@@ -6,10 +6,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.logging.Logger;
 
 import org.tmatesoft.svn.core.SVNErrorCode;
@@ -29,7 +26,6 @@ import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
 import decodepcode.ContainerProcessor;
-import decodepcode.DirTreePTmapper;
 import decodepcode.PToolsObjectToFileMapper;
 import decodepcode.PeopleCodeParser;
 import decodepcode.ProjectReader;
@@ -182,13 +178,15 @@ public class SubversionSubmitter
 			System.out.println("Submitting PeopleCode and SQL definitions to " + url + basePath);
 		}
 
-		public void process(decodepcode.PeopleCodeContainer c) throws IOException 
+		public void process(decodepcode.PeopleCodeObject c) throws IOException 
 		{
 			StringWriter w = new StringWriter();
 			if (c.hasPlainPeopleCode()) // why decode the bytecode if we have the plain text...
 				w.write(c.getPeopleCodeText());
 			else
-				parser.parse(c, w);
+			{
+				parser.parse(((decodepcode.PeopleCodeContainer) c), w);
+			}
 			String path = basePath + mapper.getPath(c, "pcode");
 			try {
 				ISVNAuthenticationManager user = authMapper.getAuthManager(c.getLastChangedBy());

@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -59,6 +61,19 @@ public class ProjectReader
 	public static SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd-HH.mm.ss.000000"), //2006-10-24-15.42.43.000000
 		df2 = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss");
 	
+	static String formatEOLchars(String in) throws IOException
+	{
+		StringWriter w = new StringWriter();
+		BufferedReader br = new BufferedReader(new StringReader(in));
+		String line, eol = System.getProperty("line.separator");
+		while ((line = br.readLine()) != null)
+		{
+			w.write(line);
+			w.write(eol);
+		}
+		return w.toString();
+	}
+	
 	private void visit(Node node, int level) throws IOException
 	{
 		logger.fine("Level = " + level + ", node = '" + node.getNodeName() + "'");
@@ -98,7 +113,7 @@ public class ProjectReader
 			{
 				String key = container.getKeyFromObjectValues();
 				logger.fine("============== level = " + level + " key = '" + key + "'\n");
-				container.setPeopleCodeText(n.getTextContent());
+				container.setPeopleCodeText(formatEOLchars(n.getTextContent()));
 				container.setLastChangedBy(lastUpdOprid);
 				container.setLastChangedDtTm(timeStamp);
 				container.setSource(source);
@@ -176,7 +191,7 @@ static class ProjectPeopleCodeContainer extends PeopleCodeContainer
 	String peopleCode, sql;
 	
 	@Override
-	String getCompositeKey() {
+	public String getCompositeKey() {
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -226,6 +241,9 @@ static class ProjectPeopleCodeContainer extends PeopleCodeContainer
 	}
 	public void setSql(String sql) {
 		this.sql = sql;
+	}
+	public int[] getKeyTypes() {
+		return objectIDs;
 	}	
 }
 
@@ -247,10 +265,12 @@ public static void main(String[] args) {
 			String projName = fileName.substring(0, fileName.length() - 4);
 			File dir = new File(".", projName);
 			ContainerProcessor processor = new WriteDecodedPPCtoDirectoryTree(new DirTreePTmapper( dir), "pcode");
+			processor.aboutToProcess();
 			p.setProcessor(processor);
 			dir.mkdir();
 			System.out.println("Output in " + dir.getAbsolutePath() );
 			p.readProject( new File(xmlFile));
+			processor.finishedProcessing();
 			Controller.writeStats();
 		}
 		else

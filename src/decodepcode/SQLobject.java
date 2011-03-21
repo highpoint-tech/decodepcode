@@ -47,4 +47,9 @@ public class SQLobject implements PeopleToolsObject
 		this.source = source;
 	}
 
+	public int[] getKeyTypes() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

@@ -110,7 +110,7 @@ public class PeopleCodeContainerFromFile extends PeopleCodeContainer implements 
 	}
 	
 	@Override
-	String getCompositeKey() {
+	public String getCompositeKey() {
 		return key;
 	}
 
@@ -143,6 +143,9 @@ public String[] getKeys() {
 @Override
 public int getPeopleCodeType() {
 	return objType;
+}
+public int[] getKeyTypes() {
+	return CreateProjectDefProcessor.getObjTypesFromPCType(objType);
 }
 	
 }
