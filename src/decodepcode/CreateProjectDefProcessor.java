@@ -4,17 +4,18 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+
 
 import decodepcode.compares.ExtractPeopleCodeFromCompareReport;
 
 public class CreateProjectDefProcessor extends ContainerProcessor 
 {
+	static Logger logger = Logger.getLogger(ExtractPeopleCodeFromCompareReport.class.getName());
+	
 	private static class ObjTypes
 	{
 		int[] i = new int[7];
@@ -31,7 +32,7 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		if (pcType==39 ) return new ObjTypes(	60,   12 ,  0  ,   0  );
 		if (pcType==40 ) return new ObjTypes(	60,   87 ,  12 ,   0  );
 		if (pcType==43 ) return new ObjTypes(	66,   77 ,  78 ,   12 );
-		if (pcType==43 ) return new ObjTypes(	66,   77 ,  39 ,   20 );
+		//if (pcType==43 ) return new ObjTypes(	66,   77 ,  39 ,   20 );
 		if (pcType==42 ) return new ObjTypes(	74,   12 ,   0 ,    0 );
 		if (pcType==44 ) return new ObjTypes(	9 ,   12 ,  0  ,   0  );
 		if (pcType==46 ) return new ObjTypes(	10,   39 ,  12 ,   0  );
@@ -39,12 +40,25 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		if (pcType==48 ) return new ObjTypes(	10,   39 ,  1  ,   2  );
 		return null;
 	}
-	public static int[] getObjTypesFromPCType( int pcType)
+	public static int[] getObjTypesFromPCType( int pcType, String[] keys)
 	{
+		if (pcType == 58) // App Package Pcode - check number of keys
+		{
+			if (keys[1] == null || keys[2].trim().length() == 0) return new int[] { 104,107,0,0 };
+			if (keys[1] == null || keys[2].trim().length() == 0) return new int[] { 104,105,107,0 };
+			return new int[] { 104,105,106,107 };
+		}
 		ObjTypes o = getObjectTypesFromPCodeType(pcType);
 		if (o == null)
 			return null;
 		return o.getObjTypes();
+	}
+	static private String fill( int l)
+	{
+		String s= "";
+		for (int i=0; i<l; i++)
+			s+= " ";
+		return s;
 	}
 	static class BarePTobject implements PeopleToolsObject
 	{
@@ -52,9 +66,45 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		String[] objValues;
 		int type;
 		public BarePTobject( PeopleCodeObject o ) {
-			objTypes = o.getKeyTypes();
-			objValues = o.getKeys();
 			type = o.getPeopleCodeType();
+			objTypes = new int[4];
+			objValues = new String[4];
+			if (o.getKeyTypes() != null)
+			{
+				if (type == 43) // app engine- cram 7 keys into 4
+				{
+					objValues[0] = o.getKeys()[0];
+					objValues[1] =  
+						(o.getKeys()[1].length() < 8? o.getKeys()[1]+" "
+								: o.getKeys()[1].substring(0,8)) 
+						+ o.getKeys()[2] +o.getKeys()[3] +"  " + o.getKeys()[4];
+					objValues[2] = o.getKeys()[5];
+					objValues[3] = o.getKeys()[6];
+					objTypes = new int[] {66,   77 ,  78 ,   12 };
+				}
+				else
+					if (type == 48 ) //Component Rec Fld PeopleCode
+					{
+						objValues[0] = o.getKeys()[0];
+						objValues[1] = o.getKeys()[1];
+						objValues[2] = o.getKeys()[2];
+						objValues[3] = o.getKeys()[3] + fill(29 - o.getKeys()[3].length() - o.getKeys()[4].length()) + o.getKeys()[4];
+						objTypes = new int[] {10,   39 ,  1  ,   2  };
+						
+					}				
+				else
+					for (int i = 0; i < 4; i++)
+					{
+						String k = o.getKeys()[i];
+						if (k != null && k.trim().length() > 0)
+						{
+							objTypes[i] = o.getKeyTypes()[i];
+							objValues[i] = k;
+						}
+					}
+			}
+			else
+				logger.severe("No key types?? "+ o);
 		}
 		public int[] getKeyTypes() {
 			return objTypes;
@@ -75,6 +125,7 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		public String getSource() {
 			return null;
 		}	
+		@Override
 		public boolean equals( Object o1)
 		{
 			BarePTobject o = (BarePTobject) o1;
@@ -84,19 +135,31 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 			&& objValues[2].equals(o.objValues[2])
 			&& objValues[3].equals(o.objValues[3]);
 		}
+		public String toString()
+		{
+			return objValues[0] + "," +objValues[1] + "," +objValues[2] + "," +objValues[3]; 
+		}
 	}
 
 	Set<BarePTobject> list;
 	File projectToCreate;
-	Logger logger = Logger.getLogger(this.getClass().getName());
 	SimpleDateFormat df;
 	String projName;
-	public CreateProjectDefProcessor( File _projectToCreate) 
+	boolean onlyProjectItems;
+	File sqlFileToCreate;
+	
+	String stripExtension( String s)
+	{
+		int i = s.indexOf(".");
+		return (i < 0)? s: s.substring(0, i);
+	}
+	
+	public CreateProjectDefProcessor( File _projectToCreate, boolean _onlyProjectItems) 
 	{
 		projectToCreate= _projectToCreate;
-		if (!projectToCreate.getName().endsWith(".xml"))
-			throw new IllegalArgumentException("Expected .xml file name, got: " + projectToCreate);
-		projName = projectToCreate.getName().substring(0, projectToCreate.getName().length() - 4).toUpperCase();
+		onlyProjectItems = _onlyProjectItems;
+		projName = 	stripExtension(projectToCreate.getName()).toUpperCase();
+		sqlFileToCreate = new File(projectToCreate.getParent(), projName + ".sql");
 		df = new SimpleDateFormat("yyyy-MM-dd-HH.mm.ss.000000");
 	}
 	@Override
@@ -109,8 +172,11 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 	{
 		try 
 		{
-		PrintWriter p = new PrintWriter(projectToCreate);
+		PrintWriter p = new PrintWriter(projectToCreate),
+				p2 = new PrintWriter(sqlFileToCreate);
 
+		if (!onlyProjectItems)
+		{
 		p.println("<?xml version='1.0'?>");
 		p.println("  <!--Warning : Don't edit this file -->");
 		p.println("  <instance class=\"PJM\">");
@@ -145,15 +211,16 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		p.println("        <hDescrLong>HANDLE</hDescrLong>");
 		p.println("        <nProjectCount>1</nProjectCount>");
 		p.println("        <lpPit> POINTER");
+		}
 		p.println("          <rowset name=\"PjmPit\" size=\"" + (list.size() * 296) + "\" count=\"" + list.size() + "\">");
 		for (BarePTobject o: list)			
 		{
 		p.println("            <row>");
 		p.println("              <eObjectType>" + o.getPeopleCodeType() + "</eObjectType>");
 		p.println("              <szObjectValue_0>" + o.getKeys()[0] + "</szObjectValue_0>");
-		p.println("              <szObjectValue_1>" + (o.getKeys()[1] == null? "" : o.getKeys()[1]) + "</szObjectValue_1>");
-		p.println("              <szObjectValue_2>" + (o.getKeys()[2] == null? "" : o.getKeys()[2]) + "</szObjectValue_2>");
-		p.println("              <szObjectValue_3>" + (o.getKeys()[3] == null? "" : o.getKeys()[3]) + "</szObjectValue_3>");
+		p.println("              <szObjectValue_1>" + (o.getKeys()[1] == null? " " : o.getKeys()[1]) + "</szObjectValue_1>");
+		p.println("              <szObjectValue_2>" + (o.getKeys()[2] == null? " " : o.getKeys()[2]) + "</szObjectValue_2>");
+		p.println("              <szObjectValue_3>" + (o.getKeys()[3] == null? " " : o.getKeys()[3]) + "</szObjectValue_3>");
 		p.println("              <eObjectID_0>" + o.getKeyTypes()[0] + "</eObjectID_0>");
 		p.println("              <eObjectID_1>" + o.getKeyTypes()[1] + "</eObjectID_1>");
 		p.println("              <eObjectID_2>" + o.getKeyTypes()[2] + "</eObjectID_2>");
@@ -166,8 +233,27 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		p.println("              <bCopyDone>0</bCopyDone>");
 		p.println("              <eRowStatus>3</eRowStatus>");
 		p.println("            </row>");
+		
+		p2.println("INSERT INTO \"PSPROJECTITEM\" (PROJECTNAME,OBJECTTYPE,OBJECTID1,OBJECTVALUE1,OBJECTID2,OBJECTVALUE2,OBJECTID3,OBJECTVALUE3,OBJECTID4,OBJECTVALUE4,NODETYPE,SOURCESTATUS,TARGETSTATUS,UPGRADEACTION,TAKEACTION,COPYDONE) VALUES (");
+		p2.print("\t'"+ projName + "',"); //  PROJECTNAME      
+		p2.print("'" + o.getPeopleCodeType() + "',"); //  OBJECTTYPE      
+		p2.print( o.getKeyTypes()[0] + ","); //  OBJECTID1      
+		p2.print("'" + (o.getKeys()[0] == null? " " : o.getKeys()[0]) + "',"); //  OBJECTVALUE1      
+		p2.print( o.getKeyTypes()[1] + ","); //  OBJECTID2      
+		p2.print("'" + (o.getKeys()[1] == null? " " : o.getKeys()[1]) + "',"); //  OBJECTVALUE2      
+		p2.print( o.getKeyTypes()[2] + ","); //  OBJECTID3      
+		p2.print("'" + (o.getKeys()[2] == null? " " : o.getKeys()[2]) + "',"); //  OBJECTVALUE3      
+		p2.print( o.getKeyTypes()[3] + ","); //  OBJECTID4      
+		p2.print("'" + (o.getKeys()[3] == null? " " : o.getKeys()[3]) + "',"); //  OBJECTVALUE3      
+		p2.print("0,"); //  NODETYPE       
+		p2.print("0,"); //  SOURCESTATUS      
+		p2.print("0,"); //  TARGETSTATUS      
+		p2.print("0,"); //  UPGRADEACTION      
+		p2.print("1,"); //  TAKEACTION      
+		p2.println("0);"); //  COPYDONE        
 		}
-		p.println("          </rowset>");
+		p.println("          </rowset>");		
+		if (!onlyProjectItems) {
 		p.println("        </lpPit>");
 		p.println("        <bCopyAllSec>1</bCopyAllSec>");
 		p.println("        <bCompAllSec>1</bCompAllSec>");
@@ -403,8 +489,10 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		p.println("  </instance>");
 		p.println("");		
 		p.println("");		
+		}
 		p.close();
-		logger.info("Created " + projectToCreate);
+		p2.close();
+		logger.info("Created " + projectToCreate + "\n      and " + sqlFileToCreate +"\n      ("+ list.size() + " object(s))");
 		}
 		catch (Exception ex) { 
 			ex.printStackTrace();
@@ -414,8 +502,6 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 	@Override
 	public void process(PeopleCodeObject c) throws IOException {
 		BarePTobject c1 = new BarePTobject(c);
-		if (list.contains(c1))
-			logger.severe("Duplicate object: " + c);
 		if (c1.getKeyTypes() != null)
 			list.add(c1);
 	}
@@ -429,18 +515,10 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 	public static void main( String[] a)
 	{
 		try {
-			ContainerProcessor processor = new CreateProjectDefProcessor( new File("c:\\temp\\testproject.xml"));
-				//new Controller.WriteDecodedPPCtoDirectoryTree(new File("c:\\temp\\decodePcode\\extract"));
+			ContainerProcessor processor = new CreateProjectDefProcessor( new File("c:\\temp\\UPGCUST.items"), true);
 			new ExtractPeopleCodeFromCompareReport().
-				processPeopleCodeFromTree(new File("C:\\projects\\sandbox\\PeopleCode\\compare_reports\\UPGCUST"),
-						processor, true, false);
-			
-/*			processor.aboutToProcess();
-			ProjectReader p = new ProjectReader();
-			p.setProcessor(processor);
-			p.readProject( new File("C:\\projects\\sandbox\\PeopleCode\\project_to_file\\EVH_TEST2\\EVH_TEST2.xml"));
-			processor.finishedProcessing();
-			*/
+				processPeopleCodeFromTree( new File("C:\\projects\\sandbox\\PeopleCode\\compare_reports\\UPGCUST"),
+						processor, ExtractPeopleCodeFromCompareReport.PROCESS_SOURCE_PCODE);
 		} catch (Exception e) {
 			e.printStackTrace();
 			// TODO: handle exception
