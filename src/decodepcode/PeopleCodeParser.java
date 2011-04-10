@@ -796,7 +796,7 @@ private static class BinWithObject implements PeopleToolsObject
 		return "bin-only test object";
 	}
 	public int[] getKeyTypes() {
-		return CreateProjectDefProcessor.getObjTypesFromPCType(type);
+		return CreateProjectDefProcessor.getObjTypesFromPCType(type, keys);
 	} 
 }
 
