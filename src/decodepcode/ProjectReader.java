@@ -68,7 +68,7 @@ public class ProjectReader
 		String line, eol = System.getProperty("line.separator");
 		while ((line = br.readLine()) != null)
 		{
-			w.write(line);
+			w.write(line.replaceAll("\\s+$", "")); // also do rtrim
 			w.write(eol);
 		}
 		return w.toString();
@@ -152,6 +152,8 @@ public class ProjectReader
 		if (!dir.exists() || !dir.isDirectory())
 			throw new IOException("Temp dir "+ dir + " not accessible");
 		File file2 = new File(dir, "temp_" + file.getName());
+		if (file2.exists())
+			file2.delete();
 		BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream( file), "utf-8"));
 		Writer w = new OutputStreamWriter(new FileOutputStream(file2), "utf-8");
 		String line, header;
@@ -173,7 +175,7 @@ public class ProjectReader
 			{
 				w.close();
 				count++;
-				logger.fine("Created file # " + count);
+				logger.info("Created file # " + count);
 				visit(builder.parse(file2), 0);
 				file2.delete();
 				w = null;
