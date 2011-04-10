@@ -146,10 +146,10 @@ public class Controller {
 					if (c.hasFoundPeopleCode())
 					{
 						processor.process(c);
-						logger.info("Completed JDBCPeopleCodeContainer for tag " + processor.getTag() );
+						logger.fine("Completed JDBCPeopleCodeContainer for tag " + processor.getTag() );
 					}
 					else
-						logger.info("No PeopleCode found in environment "+ processor.getTag() + "; nothing to process");
+						logger.fine("No PeopleCode found in environment "+ processor.getTag() + "; nothing to process");
 				}
 				countPPC++;
 			}
@@ -348,7 +348,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		public void processSQL(SQLobject sql) throws IOException {
 			File sqlFile = mapper.getFileForSQL(sql.recName, "sql");
-			logger.info("Creating " + sqlFile);
+			logger.fine("Creating " + sqlFile);
 			FileWriter fw = new FileWriter(sqlFile);
 //			dbedit.internal.parser.Formatter formatter = new Formatter();
 //			sql = formatter.format(sql, 0, null, System.getProperty("line.separator"));
@@ -422,7 +422,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		public void process(PeopleCodeObject p) throws IOException 
 		{
 			File f = mapper.getFile(p, extension);
-			logger.info("Creating " + f);
+			logger.fine("Creating " + f);
 			FileWriter w = new FileWriter(f);
 			try {
 				if (p.hasPlainPeopleCode()) // why decode the bytecode if we have the plain text...
