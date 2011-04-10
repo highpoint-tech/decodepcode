@@ -145,7 +145,7 @@ public int getPeopleCodeType() {
 	return objType;
 }
 public int[] getKeyTypes() {
-	return CreateProjectDefProcessor.getObjTypesFromPCType(objType);
+	return CreateProjectDefProcessor.getObjTypesFromPCType(objType, keys);
 }
 	
 }
