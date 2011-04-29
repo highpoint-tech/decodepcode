@@ -74,8 +74,8 @@ public class ExtractPeopleCodeFromCompareReport
 		    htmlEntities.put("&Ugrave;","Ù"); htmlEntities.put("&ucirc;","û");
 		    htmlEntities.put("&Ucirc;","Û") ; htmlEntities.put("&uuml;","ü");
 		    htmlEntities.put("&Uuml;","Ü")  ; htmlEntities.put("&nbsp;"," ");
-		    htmlEntities.put("&copy;","\u00a9"); htmlEntities.put("&apos;","'");
-		    htmlEntities.put("&reg;","\u00ae");
+		     htmlEntities.put("&apos;","'");
+		    
 		    htmlEntities.put("&euro;","\u20a0");
 		  }
 	  public static final String unescapeHTML(String source) {
