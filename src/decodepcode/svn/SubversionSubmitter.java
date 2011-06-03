@@ -59,15 +59,26 @@ public class SubversionSubmitter
     		return;
     	String parentDir = dirPath.substring(0, lastSlash);
     	addDirPath(repository, parentDir);
-    	ISVNEditor editor = repository.getCommitEditor("create path", null);
+    	ISVNEditor editor = repository.getCommitEditor("create path '" + dirPath + "'", null);
         editor.openRoot(-1);
+        String curPath = "";
         String[] dirs = dirPath.split("/");
         for (int i = 0; i < dirs.length -1; i++)
-        	editor.openDir(dirs[i], -1);
+        	if (dirs[i] != null && dirs[i].length() > 0)
+        	{
+        		curPath += "/" + dirs[i];
+        		logger.fine("Opening " + curPath);
+        		editor.openDir(curPath, -1);
+        	}
+        		
+        logger.fine("Now calling editor.addDir(" + dirPath + ", ...)");
         editor.addDir(dirPath, null, -1);
         for (int i = 0; i < dirs.length; i++)
-        	editor.closeDir();
+        	if (dirs[i] != null && dirs[i].length() > 0)
+        		editor.closeDir();
+
         editor.closeEdit();
+        
     }
     
     private static void addFile( SVNRepository repository, 
@@ -90,8 +101,13 @@ public class SubversionSubmitter
         	editor = repository.getCommitEditor( commitStr, null);
             editor.openRoot(-1);
             String[] dirs = dirPath.split("/");
+            String curPath = "";
             for (int i = 0; i < dirs.length; i++)
-            	editor.openDir(dirs[i], -1);
+            	if (dirs[i] != null && dirs[i].length() > 0)
+	            {
+	            	curPath += "/" + dirs[i]; 
+	            	editor.openDir(curPath, -1);
+	            }
         	logger.info("Creating file " + filePath);
         	editor.addFile(filePath, null, -1);
         }
@@ -122,8 +138,13 @@ public class SubversionSubmitter
             editor.openRoot(-1);
         	logger.info("Updating file " + filePath);
             String[] dirs = dirPath.split("/");
+            String curPath = "";
             for (int i = 0; i < dirs.length; i++)
-            	editor.openDir(dirs[i], -1);
+            	if (dirs[i] != null && dirs[i].length() > 0)
+	            {
+	            	curPath += "/" + dirs[i]; 
+	            	editor.openDir(curPath, -1);
+	            }
 	        editor.openFile(filePath, -1);		        
         }
         editor.applyTextDelta(filePath, null);
@@ -235,7 +256,11 @@ public class SubversionSubmitter
 	public static void main(String[] args) 
 	{
 		try {
-			
+			ISVNAuthenticationManager m = SVNWCUtil.createDefaultAuthenticationManager("harry", "secret");
+			SVNURL url = SVNURL.parseURIEncoded("svn://192.168.1.5/project1");
+			SVNRepository repository = SVNRepositoryFactory.create(url);
+			repository.setAuthenticationManager(m);
+			addDirPath(repository, "/trunk/x/y/z");
 			/*
 			FixedAuthManagerMapper authMapper = new FixedAuthManagerMapper();
 			authMapper.addCredentials("PPLTOOLS" , "harry", "secret");
