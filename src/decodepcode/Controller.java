@@ -322,7 +322,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	}
 
 	
-	static class WriteToDirectoryTree extends ContainerProcessor
+	public static class WriteToDirectoryTree extends ContainerProcessor
 	{
 		String dBowner;
 		Connection JDBCconnection;
@@ -530,12 +530,18 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			factoryClass = (Class<ContainerProcessorFactory>) Class.forName("decodepcode.FileProcessorFactory");
 		}
 		else
-			if ("ProcessToSVN".equals(type))
-			{
-					factoryClass = (Class<ContainerProcessorFactory>) 
-						Class.forName("decodepcode.svn.SubversionProcessorFactory");
-			}
-			else
+		if ("ProcessToSVN".equals(type))
+		{
+				factoryClass = (Class<ContainerProcessorFactory>) 
+					Class.forName("decodepcode.svn.SubversionProcessorFactory");
+		}
+		else
+		if ("ProcessBinToFile".equals(type))
+		{
+			factoryClass = (Class<ContainerProcessorFactory>) 
+				Class.forName("decodepcode.BinFileProcessorFactory");
+		}
+		else
 				throw new IllegalArgumentException("Don't have a processor class for " + type );
 		return (ContainerProcessorFactory) factoryClass.newInstance();
 		
