@@ -166,15 +166,18 @@ public class SubversionSubmitter
     	
     	public ISVNAuthenticationManager getAuthManager( String userName)
     	{
-    		ISVNAuthenticationManager m = map.get(userName); 
+    		if (userName == null)
+    			return defaultCredentials ;
+    		ISVNAuthenticationManager m = map.get(userName.trim()); 
     		return  m == null? defaultCredentials : m;
     	}
     	void addCredentials( String pToolUserName, String svnUserName, String svnPassword)
     	{
-    		ISVNAuthenticationManager m = SVNWCUtil.createDefaultAuthenticationManager(svnUserName, svnPassword);
+    		ISVNAuthenticationManager m = SVNWCUtil.createDefaultAuthenticationManager(svnUserName.trim(), svnPassword);
     		if (map.size() == 0)
     			defaultCredentials = m;
-    		map.put(pToolUserName, m);
+    		if (pToolUserName != null)
+    			map.put(pToolUserName.trim(), m);
     	}
     }
     
