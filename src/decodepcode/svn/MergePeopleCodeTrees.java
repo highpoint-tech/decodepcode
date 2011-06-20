@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -491,11 +493,26 @@ public class MergePeopleCodeTrees
     	createDiffFiles( mergeTree, oldDevTree, mergeTree.getName(), oldDevTree.getName());
     }
 
+    static void replaceStyleSheet( File compareDir) throws IOException
+    {
+    	File xslOrig = new File( compareDir, "items.xsl");
+    	logger.info("Replacing " + xslOrig + " with modified version");
+    	if (!xslOrig.exists())
+    		throw new IllegalArgumentException("Compare directory appears incorrect: expected it to contain 'items.xsl'");
+    	xslOrig.renameTo(new File(compareDir, "items.xsl.orig"));
+    	InputStream is = MergePeopleCodeTrees.class.getResourceAsStream("/items.xsl");
+    	OutputStream os = new FileOutputStream(new File(compareDir, "items.xsl"));
+    	int i;
+    	while ((i=is.read()) >= 0)
+    		os.write(i);
+    	is.close(); os.close();
+    }
     
     public static void doExtractAndMergeCompareReports( File compareDir, 
     		String oldDemo, String newDemo, String oldDev) 
     			throws SAXException, IOException, ParserConfigurationException, TransformerException, SVNException 
     {
+    	replaceStyleSheet( compareDir); 
     	ExtractPeopleCodeFromCompareReport.writeSourceAndTargetInSubtree(compareDir, oldDev, newDemo);
 		MergePeopleCodeTrees m = new MergePeopleCodeTrees();
 		File baseDir = new File(compareDir, ExtractPeopleCodeFromCompareReport.PEOPLECODETREE);
@@ -551,28 +568,12 @@ public static void main(String[] args)
 {
 	try 
 	{
-		boolean many = true, big = true;
-		if (many)
+		if (args.length < 4)
 		{
-			File baseDir = !big? 
-					new File("C:\\projects\\sandbox\\PeopleCode\\compare_reports\\UPGCUST")
-			:
-					new File("C:\\projects\\big\\compare_reports\\UPGCUST");
-					doExtractAndMergeCompareReports(baseDir, "PSVAN89", "PSVAN91", "PSNEW89");
+			System.err.println("Expected parameters: <compare directory> <oldDMO> <newDMO> <newDEV>");
+			return;
 		}
-		else
-		{
-			File baseDir = //new File("C:\\projects\\sandbox\\PeopleCode\\compare_reports\\UPGCUST\\");
-				new File("C:\\temp\\testmerge");
-			new MergePeopleCodeTrees().mergeTrees(
-						new File(baseDir, "oldDMO"), 
-						new File(baseDir, "newDMO"), 
-						new File(baseDir, "oldDEV"), 
-						null,
-						new File(baseDir, "Merged"),					
-						true);
-			
-		}
+		doExtractAndMergeCompareReports( new File(args[0]), args[1], args[2], args[3] );
 	} 
 	catch (Exception e) 
 	{ 
