@@ -3,8 +3,6 @@ package decodepcode;
 import java.io.File;
 import java.io.IOException;
 
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-
 public class DirTreePTmapper implements PToolsObjectToFileMapper {
 	File rootDir;
 	public DirTreePTmapper( ) {}
