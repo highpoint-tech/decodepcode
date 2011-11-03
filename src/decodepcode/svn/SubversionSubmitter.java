@@ -230,7 +230,7 @@ public class SubversionSubmitter
 
 		public void processSQL(SQLobject sql) throws IOException 
 		{
-			String path = basePath + mapper.getPathForSQL(sql.getRecName(), "sql");
+			String path = basePath + mapper.getPathForSQL(sql, "sql");
 			try {
 				ISVNAuthenticationManager user = authMapper.getAuthManager(sql.getLastChangedBy());
 				if (user != null)

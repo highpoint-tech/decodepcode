@@ -79,7 +79,7 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 		for (Object key1: properties.keySet())
 		{
 			String key = (String) key1;
-			if (key.startsWith("svnuser"))
+			if (key.startsWith("svnuser") && !key.equals("svnuser"))
 			{
 				String user = properties.getProperty(key);
 				setSVNuser(key, user);
