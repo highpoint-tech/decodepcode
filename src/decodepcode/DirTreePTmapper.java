@@ -3,6 +3,8 @@ package decodepcode;
 import java.io.File;
 import java.io.IOException;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+
 public class DirTreePTmapper implements PToolsObjectToFileMapper {
 	File rootDir;
 	public DirTreePTmapper( ) {}
@@ -27,11 +29,12 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 		return f;
 	}
 	
-	public File getFileForSQL(String recordName, String extension) throws IOException {
-		recordName = recordName.trim();
-		File dir = new File(new File(rootDir, "SQL"), recordName);
-		dir.mkdirs();
-		return new File(dir, recordName + "." + extension);
+	public File getFileForSQL(SQLobject sqlObject, String extension) throws IOException {
+		File f = new File(rootDir, "SQL");
+		for ( int i = 0; i < sqlObject.getKeys().length; i++) // optional MARKET and/or DBTYPE
+			f = new File(f, sqlObject.getKeys()[i]); 
+		f.mkdirs();
+		return new File(f, sqlObject.getKeys()[0]+ "." + extension);
 	}
 	public String getPath(PeopleToolsObject obj, String extension) {
 		String pcType = JDBCPeopleCodeContainer.objectTypeStr(obj.getPeopleCodeType());
@@ -45,9 +48,11 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 		f += obj.getKeys()[last].trim() + "." + extension;
 		return f;
 	}
-	public String getPathForSQL(String recordName, String extension) {
-		recordName = recordName.trim();
-		return "/SQL/" +  recordName + "/" +  recordName + "." + extension;
+	public String getPathForSQL(SQLobject sqlObject, String extension) {
+		String f = "/SQL";
+		for ( int i = 0; i < sqlObject.getKeys().length; i++) // optional MARKET and/or DBTYPE
+			f = f + "/" + sqlObject.getKeys()[i]; 
+		return f + "/" + sqlObject.getKeys()[0]+ "." + extension;
 	}
 
 }

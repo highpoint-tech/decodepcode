@@ -162,6 +162,18 @@ public class Controller {
 		for (ContainerProcessor processor0: processors)
 			processor0.finishedProcessing();
 	}
+	public static String dbTypeXLAT( String dbType)
+	{
+		if (dbType == null || " ".equals(dbType)) return " ";
+		if ("1".equals(dbType)) return	"DB2";
+		if( "2".equals(dbType)) return	"Oracle";
+		if( "3".equals(dbType)) return	"Informix";
+		if( "4".equals(dbType)) return	"DB2_UNIX";
+		if( "6".equals(dbType)) return	"Sybase";
+		if( "7".equals(dbType)) return	"Microsoft";
+		return dbType;
+	}
+	
 	/*
 	 * select 
 d.LASTUPDOPRID, d.LASTUPDDTTM, 
@@ -172,22 +184,32 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	static void processSQLs( ResultSet rs, List<ContainerProcessor> processors) throws SQLException, IOException
 	{
 		for (ContainerProcessor processor: processors)
-			processor.setPs(processor.getJDBCconnection().prepareStatement(
-					"select td.SQLTEXT, d.LASTUPDDTTM, d.LASTUPDOPRID from " 
-					+ processor.getDBowner() + "PSSQLDEFN d, " 
-					+ processor.getDBowner() + "PSSQLTEXTDEFN td where d.SQLID=td.SQLID and td.SQLID = ?"));
+		{
+			String q = 					"select td.SQLTEXT, d.LASTUPDDTTM, d.LASTUPDOPRID, td.MARKET from " 
+					+ processor.getDBowner() + "PSSQLDEFN d, " 					
+					+ processor.getDBowner() + "PSSQLTEXTDEFN td where d.SQLID=td.SQLID and td.SQLID = ?"
+					+ " and td.MARKET=? and td.DBTYPE like ?";
+			processor.setPs(processor.getJDBCconnection().prepareStatement(q));
+		}
 		while (rs.next())
 		{
 			String recName = rs.getString("SQLID");
-			if (recsProcessed.contains(recName))
+			String dbType = rs.getString("DBTYPE");
+			String market = rs.getString("MARKET");
+			//if (" ".equals(dbType))
+			//	dbType = "%";
+			String sqlKey = recName + "-" + rs.getString("MARKET") + "-" + dbType;
+			if (recsProcessed.contains(sqlKey))
 			{
-				logger.info("Already processed SQL ID "+ recName + "; skipping");
+				logger.info("Already processed SQL ID "+ sqlKey + "; skipping");
 				continue;
 			}
-			recsProcessed.add(recName);
+			recsProcessed.add(sqlKey);
 			for (ContainerProcessor processor: processors)
 			{
 				processor.getPs().setString(1, recName);
+				processor.getPs().setString(2, market);
+				processor.getPs().setString(3, dbType);
 				ResultSet rs2 = processor.getPs().executeQuery();
 				if (rs2.next())
 				{
@@ -195,7 +217,12 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 					if (recName == null || sqlStr == null)
 						continue;
 					Date date = new Date(rs2.getTimestamp("LASTUPDDTTM").getTime());
-					SQLobject sql = new SQLobject(recName.trim(), sqlStr.trim(), rs2.getString("LASTUPDOPRID"), date);
+					SQLobject sql = new SQLobject(recName.trim(), 
+							sqlStr.trim(), 
+							rs2.getString("LASTUPDOPRID"),
+							date,
+							rs2.getString("MARKET"),
+							dbTypeXLAT(dbType));
 					processor.processSQL(sql);
 				}
 				else
@@ -209,7 +236,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	{
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td, " 
-				+ dbowner + "PSPROJECTITEM pi  where d.SQLID=td.SQLID and d.SQLID=pi.OBJECTVALUE1 and pi.OBJECTID1=65 and pi.OBJECTVALUE2=td.SQLTYPE and DBTYPE = ' ' and pi.PROJECTNAME='" + projectName + "'";  
+				+ dbowner + "PSPROJECTITEM pi  where d.SQLID=td.SQLID and d.SQLID=pi.OBJECTVALUE1 and pi.OBJECTID1=65 and pi.OBJECTVALUE2=td.SQLTYPE and pi.PROJECTNAME='" + projectName + "'";  
 		Statement st0 =  dbconn.createStatement();
 		logger.info(q);
 		ResultSet rs = st0.executeQuery(q);		
@@ -351,14 +378,14 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			}
 		}
 		public void processSQL(SQLobject sql) throws IOException {
-			File sqlFile = mapper.getFileForSQL(sql.recName, "sql");
+			File sqlFile = mapper.getFileForSQL(sql, "sql");
 			logger.fine("Creating " + sqlFile);
 			FileWriter fw = new FileWriter(sqlFile);
 //			dbedit.internal.parser.Formatter formatter = new Formatter();
 //			sql = formatter.format(sql, 0, null, System.getProperty("line.separator"));
 			fw.write(sql.sql);
 			fw.close();
-			File infoFile = mapper.getFileForSQL(sql.recName, "last_update");
+			File infoFile = mapper.getFileForSQL(sql, "last_update");
 			PrintWriter pw = new PrintWriter(infoFile);
 			pw.println(sql.lastChangedBy);
 			pw.println(ProjectReader.df2.format(sql.lastChanged));
@@ -457,14 +484,14 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		public void processSQL(SQLobject sql) throws IOException 
 		{
-			File sqlFile = mapper.getFileForSQL(sql.recName, "sql");
+			File sqlFile = mapper.getFileForSQL(sql, "sql");
 			logger.info("Creating " + sqlFile);
 			FileWriter fw = new FileWriter(sqlFile);
 			fw.write(sql.sql);
 			fw.close();
 			if (sql.getLastChangedBy() != null && sql.lastChanged != null)
 			{
-				File infoFile = mapper.getFileForSQL(sql.recName, "last_update");
+				File infoFile = mapper.getFileForSQL(sql, "last_update");
 				PrintWriter pw = new PrintWriter(infoFile);
 				pw.println(sql.lastChangedBy);
 				pw.println(ProjectReader.df2.format(sql.lastChanged));

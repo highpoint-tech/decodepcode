@@ -11,8 +11,8 @@ import java.io.IOException;
 public abstract interface PToolsObjectToFileMapper {
 
 	public abstract File getFile( PeopleToolsObject obj, String extension) throws IOException; 
-	public abstract File getFileForSQL( String recordName, String extension) throws IOException;
+	public abstract File getFileForSQL( SQLobject slqObject, String extension) throws IOException;
 	public abstract String getPath( PeopleToolsObject obj, String extension); 
-	public abstract String getPathForSQL( String recordName, String extension);
+	public abstract String getPathForSQL( SQLobject slqObject, String extension);
 
 }
