@@ -216,7 +216,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 					String sqlStr = rs2.getString("SQLTEXT");
 					if (recName == null || sqlStr == null)
 						continue;
-					Date date = new Date(rs2.getTimestamp("LASTUPDDTTM").getTime());
+					Timestamp d = rs2.getTimestamp("LASTUPDDTTM");
+					Date date = d == null? new Date(0) : new Date(d.getTime());
 					SQLobject sql = new SQLobject(recName.trim(), 
 							sqlStr.trim(), 
 							rs2.getString("LASTUPDOPRID"),
