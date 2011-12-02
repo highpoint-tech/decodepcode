@@ -215,7 +215,10 @@ public class SubversionSubmitter
 			try {
 				ISVNAuthenticationManager user = authMapper.getAuthManager(c.getLastChangedBy());
 				if (user != null)
+				{
+					logger.info("setting mapped AuthManager for user " + c.getLastChangedBy());
 					repository.setAuthenticationManager(user);
+				}
 				addFile(repository, path, 
 					"Saved at " + ProjectReader.df2.format(c.getLastChangedDtTm()) + " by " + c.getLastChangedBy()
 					+ (c.getSource() == null? "" : " (source: " + c.getSource() + ")")  , 
@@ -234,7 +237,10 @@ public class SubversionSubmitter
 			try {
 				ISVNAuthenticationManager user = authMapper.getAuthManager(sql.getLastChangedBy());
 				if (user != null)
+				{
+					logger.info("Setting mapped AuthManager for user " + sql.getLastChangedBy());
 					repository.setAuthenticationManager(user);
+				}
 				if (sql.getLastChangedDtTm() != null && sql.getLastChangedBy() != null)
 				addFile(repository, path, 
 					"Saved at " + ProjectReader.df2.format(sql.getLastChangedDtTm()) + " by " + sql.getLastChangedBy(), 
