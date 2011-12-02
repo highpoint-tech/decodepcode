@@ -36,7 +36,6 @@ import decodepcode.CreateProjectDefProcessor;
 import decodepcode.DirTreePTmapper;
 import decodepcode.PToolsObjectToFileMapper;
 import decodepcode.PeopleCodeObject;
-import decodepcode.ProjectReader;
 
 
 
@@ -235,7 +234,7 @@ public class ExtractPeopleCodeFromCompareReport
 					try {
 						if (processor instanceof Controller.WriteDecodedPPCtoDirectoryTree)
 						{
-							PToolsObjectToFileMapper mapper = ((Controller.WriteDecodedPPCtoDirectoryTree) processor).getMapper();
+//							PToolsObjectToFileMapper mapper = ((Controller.WriteDecodedPPCtoDirectoryTree) processor).getMapper();
 							Element n2 = null;
 							NodeList nl2 = n.getChildNodes();		
 							for(int i2=0, cnt2=nl2.getLength(); i2<cnt2; i2++)
