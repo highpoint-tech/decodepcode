@@ -288,7 +288,7 @@ public static void main(String[] args) {
 		else
 		{
 			System.out.println("Usage: java peoplecode.decoder.ProjectReader yourproject.xml");
-			System.out.println("This will read this PeopleTools project and create a folder strucure with the same name in the current directory");
+			System.out.println("This will read this PeopleTools project and create a folder structure with the same name in the current directory");
 		}
 	}
 	catch (Throwable e) {
