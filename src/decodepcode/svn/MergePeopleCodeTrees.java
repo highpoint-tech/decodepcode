@@ -1,15 +1,19 @@
 package decodepcode.svn;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -87,12 +91,12 @@ public class MergePeopleCodeTrees
 		}
 	}
 	
-	boolean fileExists( File dst)
+	static boolean fileExists( File dst)
 	{
 		return dst.exists() && dst.isFile();
 	}
 	
-	boolean filesAreIdentical( File src, File dst) throws IOException
+	static boolean filesAreIdentical( File src, File dst) throws IOException
 	{
 		if (!fileExists(src))
 			throw new IllegalArgumentException("?? file " + src + " does not exist");
@@ -104,7 +108,7 @@ public class MergePeopleCodeTrees
 			return false;
 		byte[] buf = new byte[10000], buf2 = new byte[10000];
 		int n;
-		while ( (n = fSrc.read(buf)) > 0  && fSrc.read(buf2) > 0 )
+		while ( (n = fSrc.read(buf)) > 0  && fDst.read(buf2) > 0 )
 			for (int i=0; i < n; i++)
 				if (buf[i] != buf2[i])
 					return false;
@@ -483,26 +487,59 @@ public class MergePeopleCodeTrees
     	createDiffFiles( oldDevTree, oldDemoTree, oldDevTree.getName(), oldDemoTree.getName());
     	createDiffFiles( mergeTree, oldDevTree, mergeTree.getName(), oldDevTree.getName());
     }
-
+    
+    public static File patchProg = new File("C:\\program files\\gnu\\patch.exe");
+    
     static void replaceStyleSheet( File compareDir) throws IOException
     {
-    	File xslOrig = new File( compareDir, "items.xsl");
-    	logger.info("Replacing " + xslOrig + " with modified version");
-    	if (!xslOrig.exists())
+    	File patchFile = new File(compareDir, "items.xsl.patch");
+    	if (patchFile.exists())
+    	{
+    		logger.info("Found " + patchFile + "; assuming items.xsl has been patched");
+    		return;
+    	}
+    	File xsl = new File( compareDir, "items.xsl");
+    	logger.info("Replacing " + xsl + " with modified version");
+    	if (!xsl.exists())
     		throw new IllegalArgumentException("Compare directory appears incorrect: expected it to contain 'items.xsl'");
-    	xslOrig.renameTo(new File(compareDir, "items.xsl.orig"));
-    	InputStream is = MergePeopleCodeTrees.class.getResourceAsStream("/items.xsl");
-    	OutputStream os = new FileOutputStream(new File(compareDir, "items.xsl"));
+    	if  (!patchProg.exists())
+    		throw new IllegalArgumentException("GNU patch program '" + patchProg + "' not found");
+//    	xslOrig.renameTo(new File(compareDir, "items.xsl.orig"));
+    	InputStream is = MergePeopleCodeTrees.class.getResourceAsStream("/items.xsl.patch");
+    	OutputStream os = new FileOutputStream(patchFile);
     	int i;
     	while ((i=is.read()) >= 0)
     		os.write(i);
     	is.close(); os.close();
+    	String[] cmdArray  = { patchProg.toString(), "", xsl.toString(), patchFile.toString()};
+		Process p = Runtime.getRuntime().exec(cmdArray);
+		BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream())),
+			brErr  = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+		String line = "", line2 = null;
+		while ( (line = br.readLine()) != null || ((line2 = brErr.readLine()) != null))
+		{
+			logger.info(line);
+			if (line2 != null) 
+				logger.severe("patch:  " + line2);
+		}
+
+		int exit = p.exitValue();
+		if (exit != 0)
+			logger.severe("Unable to patch stylesheet " + xsl + "; exit code = " + exit);
     }
     
     public static void doExtractAndMergeCompareReports( File compareDir, 
     		String oldDemo, String newDemo, String oldDev) 
     			throws SAXException, IOException, ParserConfigurationException, TransformerException, SVNException 
     {
+    	Properties props = Controller.readProperties();
+    	String GNUdiff = props.getProperty("GNUdiff"),
+    		GNUpatch = props.getProperty("GNUpatch");
+    	if (GNUdiff != null)
+    		RunExternalDiffProgram.diffProg = new File(GNUdiff);
+    	if (GNUpatch != null)
+    		patchProg = new File(GNUpatch);
+    	
     	replaceStyleSheet( compareDir); 
     	ExtractPeopleCodeFromCompareReport.writeSourceAndTargetInSubtree(compareDir, oldDev, newDemo);
 		MergePeopleCodeTrees m = new MergePeopleCodeTrees();

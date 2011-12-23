@@ -7,34 +7,52 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Properties;
+
+import decodepcode.Controller;
 
 public class RunExternalDiffProgram 
 {
 	public final static String  eol = System.getProperty("line.separator");
+	public static File diffProg = new File("C:\\program files\\gnu\\diff.exe");
 	
 	public static String getLongDiff( File f1, File f2) throws IOException
 	{
-		return getDiff("C:\\progs\\sundries\\diff.exe", "-y", f1, f2);
+		String[] p = {"-y"};
+		return getDiff(diffProg, p, f1, f2);
 	}
 	
 	public static String getShortDiff( File f1, File f2) throws IOException
 	{
 		long count = 0;
-		BufferedReader br = new BufferedReader(new StringReader( getLongDiff(f1, f2)));
-		while (br.readLine() != null)
-			count++;
+		String[] p = {"-y", "--suppress-common-lines"};
+		BufferedReader br = new BufferedReader(new StringReader( getDiff(diffProg, p, f1, f2)));
+		String line;
+		while ((line = br.readLine()) != null)
+			if (line.length() > 0)
+				count++;
 		return "" + count + " line(s) in diff";
 	}
 
 	
-	public static String getDiff( String diffProg, String params, File f1, File f2) throws IOException
+	public static String getDiff( File diffProg, String[] params, File f1, File f2) throws IOException
 	{
 		if (!f1.exists() )
 			throw new IllegalArgumentException("File "+ f1 + " does not exist");
 		if (!f2.exists() )
 			throw new IllegalArgumentException("File "+ f2 + " does not exist");
 		
-		String[] cmdArray  = { diffProg, params, f1.toString(), f2.toString()};
+		if (!diffProg.exists())
+			throw new IllegalArgumentException("Diff program " + diffProg + " not found" );
+		ArrayList<String> a = new ArrayList<String>();
+		a.add(diffProg.toString());
+		for (String p: params)
+			a.add(p);
+		a.add(f1.toString());
+		a.add(f2.toString());
+		String[] cmdArray = new String[a.size()] ;
+		a.toArray(cmdArray);
 		String cmd = "";
 		for (String s: cmdArray) 
 			cmd += s + " ";
@@ -62,13 +80,17 @@ public class RunExternalDiffProgram
 	
 	public RunExternalDiffProgram() throws IOException, InterruptedException
 	{
-		String diffProg = "C:\\progs\\sundries\\diff.exe",
-			params = "",
-			path = "/Component_PeopleCode/ASSIGNMENT_DATA/GBL/PreBuild.pcode";
-		File dir = new File("C:\\projects\\big\\Compare_Reports\\UPGCUST\\PeopleCodeTrees\\"),
-			  f1 = new File(dir, "PSNEW89/" + path),
-			  f2 = new File(dir, "PSVAN91/" + path);
-		System.out.println(getDiff(diffProg, params, f1, f2));
+    	Properties props = Controller.readProperties();
+    	String GNUdiff = props.getProperty("GNUdiff");
+    	if (GNUdiff != null)
+    		RunExternalDiffProgram.diffProg = new File(GNUdiff);
+
+//		String diffProg = "C:\\progs\\sundries\\diff.exe",	params = "-y";
+		String 	path = "Record_PeopleCode\\BANKING_DW\\ADDL_BANK_INFO_BTN\\FieldChange.pcode";
+		File dir = new File("C:\\projects\\sandbox\\big\\UPGCUST\\PeopleCodeTrees\\"),
+			  f1 = new File(dir, "HRDEV/" + path),
+			  f2 = new File(dir, "Merged/" + path);
+		System.out.println(getShortDiff(f1, f2));
 	}
 	
 	/**
