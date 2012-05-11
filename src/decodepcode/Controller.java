@@ -57,6 +57,7 @@ public class Controller {
 	static boolean writePPC = false;
 	static boolean reverseEngineer= false; 
 	static long countPPC=0, countSQL= 0;
+	static String oprid = null;
 	final static File lastTimeFile = new File("last-time.txt");
 	private static Set<String> recsProcessed = new HashSet<String>(); // for SQL IDs 
 
@@ -253,7 +254,9 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		{
 			String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 				+ processor.getDBowner() + "PSSQLDEFN d, " + processor.getDBowner()+ "PSSQLTEXTDEFN td " 
-					+ " where td.SQLTYPE=2 and d.SQLID=td.SQLID and d.LASTUPDDTTM >= ?";  
+					+ " where td.SQLTYPE=2 and d.SQLID=td.SQLID and d.LASTUPDDTTM >= ?";
+			if (oprid != null)
+				q += " and d.LASTUPDOPRID = '" + oprid + "'";
 			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q);
 			st0.setTimestamp(1, date);
 			logger.info(q);
@@ -275,6 +278,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td " 
 				+ " where td.SQLTYPE=2 and d.SQLID=td.SQLID and d.LASTUPDOPRID <> 'PPLSOFT'";  
+		if (oprid != null)
+			q += " and d.LASTUPDOPRID = '" + oprid + "'";
 		PreparedStatement st0 =  dbconn.prepareStatement(q);
 		logger.info(q);
 		ResultSet rs = st0.executeQuery();		
@@ -531,10 +536,16 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
 		logger.info("Starting to write decoded PeopleCode with time stamp after " + fromDate );
-		FileWriter f = new FileWriter(lastTimeFile);
-		f.write(ProjectReader.df2.format(new Date()));
-		f.close();
+		if (oprid == null)
+		{
+			FileWriter f = new FileWriter(lastTimeFile);
+			f.write(ProjectReader.df2.format(new Date()));
+			f.close();
+		}
 		String whereClause = " where LASTUPDDTTM > ?";
+		if (oprid != null)
+			whereClause += " and LASTUPDOPRID = '" + oprid + "'";
+
 		// with queryAllConnections = true, so that all environments are tracked with this query:
 		makeAndProcessContainers( whereClause, true, processors, new DateSetter(fromDate));
 		logger.info("Finished writing .pcode files");		
@@ -544,6 +555,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	{
 		logger.info("Starting to write customized PeopleCode files ");
 		String whereClause = " where pc.LASTUPDOPRID <> 'PPLSOFT'";
+		if (oprid != null)
+			whereClause += " and pc.LASTUPDOPRID = '" + oprid + "'";
 		makeAndProcessContainers( whereClause, false, processors);
 		logger.info("Finished writing .pcode files");		
 	}	
@@ -659,6 +672,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			dbconn = getJDBCconnection("");
 			processor.setJDBCconnection(dbconn);
 			processor.setDBowner(dbowner);
+			
+			
+			if (a.length >= 3 && "OPRID".equalsIgnoreCase(a[a.length-2]))
+				oprid = a[a.length-1];
 			
 			if (a.length > 2 && "since".equalsIgnoreCase(a[1]))
 			{
