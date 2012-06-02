@@ -354,7 +354,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				"||";
 		
 		String whereClause = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
-	    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2= pc.OBJECTID2"
+	    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2 = pc.OBJECTID2"
 	    + "   and (pi.OBJECTTYPE=58 or (pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3))) "
 		+ " and ((pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4)"
 		+ "  or (pi.OBJECTTYPE = 48 and pi.OBJECTVALUE4 like (pc.OBJECTVALUE4 " + concat + " '%' " + concat + "  pc.OBJECTVALUE5))) "
