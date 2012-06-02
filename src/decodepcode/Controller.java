@@ -345,13 +345,21 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	{
 		logger.info("Starting to write PeopleCode for project " + projectName );
 		/* for most PeopleCode object types, the 4 OBJECTVALUE fields match in PSPROJECTITEM and in PSPCMPROG, but
-		 * App Engine ppc (43) and Component Record Field ppc (48) are a bit different  
+		 * App Engine ppc (43) and Component Record Field ppc (48) are a bit different, as their PCMPROG uses more keys fit in the project definition
+		 * Also, the third key of app package ppc (58) does not seem to be used in the project definition.
 		 */
+		String concat = processors.get(0).getJDBCconnection().getMetaData().getDatabaseProductName().toLowerCase().indexOf("sql server") >= 0? 
+				"+" 
+			: 
+				"||";
+		
 		String whereClause = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
-	    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2= pc.OBJECTID2 and pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3) "
-		+ " and ((pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4) or (pi.OBJECTTYPE = 48 and pi.OBJECTVALUE4 like (pc.OBJECTVALUE4 || '%' || pc.OBJECTVALUE5))) "
-		+ "  or (pi.OBJECTTYPE  = 43 and pi.OBJECTVALUE2 like pc.OBJECTVALUE2 || '%' and pi.OBJECTVALUE3 = pc.OBJECTVALUE6))  "
-		+ " and pi.PROJECTNAME='" + projectName + "' and pi.OBJECTTYPE in (8 , 9 ,39 ,40 ,42 ,43 ,44 ,46 ,47 ,48 ,58)";
+	    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2= pc.OBJECTID2"
+	    + "   and (pi.OBJECTTYPE=58 or (pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3))) "
+		+ " and ((pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4)"
+		+ "  or (pi.OBJECTTYPE = 48 and pi.OBJECTVALUE4 like (pc.OBJECTVALUE4 " + concat + " '%' " + concat + "  pc.OBJECTVALUE5))) "
+		+ "  or (pi.OBJECTTYPE = 43 and pi.OBJECTVALUE2 like pc.OBJECTVALUE2 " + concat + " '%' and pi.OBJECTVALUE3 = pc.OBJECTVALUE6))  "
+		+ " and pi.PROJECTNAME='" + projectName + "' and pi.OBJECTTYPE in (8, 9, 39 ,40 ,42 ,43 ,44 ,46 ,47 ,48 ,58)";
 		makeAndProcessContainers( whereClause, false, processors);
 		logger.info("Finished writing .pcode files for project " + projectName);		
 		processSQLforProject(projectName, processors); 		
