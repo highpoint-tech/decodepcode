@@ -171,9 +171,11 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 				bytes = b1;
 			}
 		}
+		rs2.close();
 		if (bytes == null || bytes.length == 0)
 		{
 			//logger.severe("Nothing retrieved from PSPCMPRPG with "+ q);
+			st.close();
 			return;
 		}
 		foundPeopleCode = true;
@@ -196,6 +198,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 					(recname != null && recname.length()> 0? recname + "." : "") 
 					+ refName);
 		}
+		rs2.close();
 		logger.fine("" + references.size() + " references found");
 		st.close();
 	}
