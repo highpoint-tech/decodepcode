@@ -436,6 +436,7 @@ public class PeopleCodeParser {
 		new NumberParser((byte) 80, 18),
 		new SimpleElementParser((byte) 81 , "PanelGroup"),
 		new SimpleElementParser((byte) 82 , ""),
+		new SimpleElementParser((byte) 83 , "Doc", NEWLINE_BEFORE_SPACE_AFTER),
 		new SimpleElementParser((byte) 84, "Component", NEWLINE_BEFORE_SPACE_AFTER),
 		new CommentParser((byte) 85, NEWLINE_AFTER | COMMENT_ON_SAME_LINE | SPACE_BEFORE),
 		new SimpleElementParser((byte) 86, "Constant", NEWLINE_BEFORE_SPACE_AFTER),
