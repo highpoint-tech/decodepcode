@@ -21,9 +21,12 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 			if (obj.getKeys()[i] != null && obj.getKeys()[i].trim().length() > 0)
 				last = i;
 		for (int i = 0; i < last; i++)
-			f = new File(f, obj.getKeys()[i].trim());
+		{			
+			String dirName = obj.getKeys()[i].trim().replace("/", "_").replace("?", "_").replace("*", "_");
+			f = new File(f, dirName);
+		}	
 		f.mkdirs();
-		f = new File(f, obj.getKeys()[last].trim() + "." + extension);
+		f = new File(f, obj.getKeys()[last].trim().replace("/", "_").replace("?", "_").replace("*", "_") + "." + extension);
 		return f;
 	}
 	
