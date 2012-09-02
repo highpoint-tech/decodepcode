@@ -599,12 +599,21 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		return (ContainerProcessorFactory) factoryClass.newInstance();
 		
 	}
+	
+	public static void doTest(List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
+	{
+		String whereClause = " where OBJECTVALUE1 = 'USER_PROFILE' and OBJECTID2 = 12";
+
+		makeAndProcessContainers( whereClause, true, processors);
+		logger.info("Finished writing .pcode files");		
+		
+	}
+	
 	/**
 	 * Run from command line:
 	 *  Arguments: project name, or 'since' + date (in yyyy/MM/dd format), or 'since-days' + #days, or 'custom'"
 	 * @param a
-	 */
-	
+	 */	
 	public static void main(String[] a)
 	{
 		try {
@@ -652,9 +661,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 						logger.severe("JDBC connection parameters for processor with suffix '" + suffix + "' absent or invalid");
 					}
 				}
-			}
-			
-			
+			}						
 			
 			if (inputIsPToolsProject)
 			{
@@ -681,7 +688,13 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			processor.setJDBCconnection(dbconn);
 			processor.setDBowner(dbowner);
 			
-			
+/*
+			if (a.length >= 2 && "TEST".equalsIgnoreCase(a[1]))
+			{
+				doTest(processors);
+				return;
+			}
+*/			
 			if (a.length >= 3 && "OPRID".equalsIgnoreCase(a[a.length-2]))
 				oprid = a[a.length-1];
 			
