@@ -49,7 +49,7 @@ public class ProjectReader
 	final static String eol=System.getProperty("line.separator");
 	private PeopleToolsProject project;
 	java.util.Date timeStamp;
-	String lastUpdOprid, sqlRecordName, source, sqlMarket = "GBL", sqlDbType = " ";
+	String lastUpdOprid, sqlRecordName, sqlType, source, sqlMarket = "GBL", sqlDbType = " ";
 	ProjectPeopleCodeContainer container = new ProjectPeopleCodeContainer();
 	SQLobject sqlObject;
 	ContainerProcessor processor;
@@ -107,6 +107,11 @@ public class ProjectReader
 			{
 					sqlRecordName = n.getTextContent();
 			}
+			if (n.getNodeType() == Node.ELEMENT_NODE && n.getNodeName().equals("szSqlType"))
+			{
+					sqlType = n.getTextContent();
+			}
+			
 			if (n.getNodeType() == Node.ELEMENT_NODE && n.getNodeName().equals("szMarket"))
 				sqlMarket = n.getTextContent();
 			if (n.getNodeType() == Node.ELEMENT_NODE && n.getNodeName().equals("cDbType"))
@@ -136,7 +141,7 @@ public class ProjectReader
 			{
 				String key = container.getKeyFromObjectValues();
 				logger.fine("==== lpszSqlText ========= level = " + level + " key = '" + key + "'");
-				SQLobject sqlObj = new SQLobject(sqlRecordName, n.getTextContent(), lastUpdOprid, timeStamp,
+				SQLobject sqlObj = new SQLobject(Integer.parseInt(sqlType), sqlRecordName, n.getTextContent(), lastUpdOprid, timeStamp,
 						sqlMarket, sqlDbType);
 				sqlObj.setSource(source);
 				processor.processSQL( sqlObj);
