@@ -402,7 +402,7 @@ public class MergePeopleCodeTrees
         if (count > 0)
         	logger.warning("" + count + " files could not be merged");
         
-        logger.warning("Ready. You may want to delete work directory " + workDir);
+        logger.warning("Three-way merge completed. You may want to delete work directory " + workDir + ".\nNow preparing diffs.");
         
 	}
 	
@@ -435,24 +435,27 @@ public class MergePeopleCodeTrees
     
     void createDiffFiles( File tree1, File tree2, String tree1Name, String tree2Name) throws IOException
     {
-    	if (!tree1.exists() || !tree1.isDirectory() || !tree2.exists() || !tree2.isDirectory())
+    	if (!tree1.exists() || !tree1.isDirectory() 
+    			|| !((tree2.exists() && tree2.isDirectory())
+    					|| tree2 == null)
+    			)
     		return;
     	String[] files = tree1.list();
     	for (String fs: files)
     	{
     		File f1 = new File(tree1,fs),
-    			f2 = new File(tree2, fs);
+    			f2 = tree2 == null? null : new File(tree2, fs);
     		if (f1.isDirectory())
     			createDiffFiles(f1, f2, tree1Name, tree2Name);
     		else
     			if (fs.endsWith(".pcode"))
 	    		{
-	    			String diff;
-	    			if (!f2.exists())
-	    				diff = fs + " does not exist in " + tree2Name;
+    				String hover;
+	    			if (f2 == null || !f2.exists())
+	    				hover = "Does not exist in " + tree2Name;
 	    			else	    				
 	    			{
-	    				String hover;
+		    			String diff;
 	    				File diffFile = new File(tree1, replaceExtension(fs, ".difftxt"));
 	    				if (filesAreIdentical(f1, f2))
 	    				{
@@ -462,7 +465,9 @@ public class MergePeopleCodeTrees
 	    				}
 	    				else
 	    				{	    					
-		    				diff = "Compare between " + tree1Name + " and " + tree2Name + RunExternalDiffProgram.eol 
+		    				diff = "Compare between " + tree1Name + " and " + tree2Name + ":" 
+		    					+ RunExternalDiffProgram.eol
+		    					+ RunExternalDiffProgram.eol 
 		    					+ RunExternalDiffProgram.getLongDiff(f1, f2);
 		    				FileWriter fw = new FileWriter(diffFile);
 		    				fw.write(diff);
@@ -471,10 +476,10 @@ public class MergePeopleCodeTrees
 		    				hover = "NOT identical to version in " + tree2Name
 		    					+ RunExternalDiffProgram.eol + RunExternalDiffProgram.getShortDiff(f1, f2);
 	    				}	    				
-	    				FileWriter fw = new FileWriter(new File(tree1, replaceExtension(fs, ".hover")));
-	    				fw.write(hover);
-	    				fw.close();
 	    			}
+    				FileWriter fw = new FileWriter(new File(tree1, replaceExtension(fs, ".hover")));
+    				fw.write(hover);
+    				fw.close();
 	    		}    				
     	}    	
     }
