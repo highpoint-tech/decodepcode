@@ -189,7 +189,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			String q = 					"select td.SQLTEXT, d.LASTUPDDTTM, d.LASTUPDOPRID, td.MARKET from " 
 					+ processor.getDBowner() + "PSSQLDEFN d, " 					
 					+ processor.getDBowner() + "PSSQLTEXTDEFN td where d.SQLID=td.SQLID and td.SQLID = ?"
-					+ " and td.MARKET=? and td.DBTYPE like ?";
+					+ " and td.MARKET=? and td.DBTYPE like ? and td.SQLTYPE=?";
 			processor.setPs(processor.getJDBCconnection().prepareStatement(q));
 		}
 		while (rs.next())
@@ -197,9 +197,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			String recName = rs.getString("SQLID");
 			String dbType = rs.getString("DBTYPE");
 			String market = rs.getString("MARKET");
+			int sqlType = rs.getInt("SQLTYPE");
 			//if (" ".equals(dbType))
 			//	dbType = "%";
-			String sqlKey = recName + "-" + rs.getString("MARKET") + "-" + dbType;
+			String sqlKey = "" + sqlType + "-" + recName + "-" + rs.getString("MARKET") + "-" + dbType;
 			if (recsProcessed.contains(sqlKey))
 			{
 				logger.info("Already processed SQL ID "+ sqlKey + "; skipping");
@@ -211,6 +212,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				processor.getPs().setString(1, recName);
 				processor.getPs().setString(2, market);
 				processor.getPs().setString(3, dbType);
+				processor.getPs().setInt(4, sqlType);
 				ResultSet rs2 = processor.getPs().executeQuery();
 				if (rs2.next())
 				{
@@ -219,7 +221,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 						continue;
 					Timestamp d = rs2.getTimestamp("LASTUPDDTTM");
 					Date date = d == null? new Date(0) : new Date(d.getTime());
-					SQLobject sql = new SQLobject(recName.trim(), 
+					SQLobject sql = new SQLobject(sqlType, recName.trim(), 
 							sqlStr.trim(), 
 							rs2.getString("LASTUPDOPRID"),
 							date,
@@ -254,7 +256,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		{
 			String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 				+ processor.getDBowner() + "PSSQLDEFN d, " + processor.getDBowner()+ "PSSQLTEXTDEFN td " 
-					+ " where td.SQLTYPE=2 and d.SQLID=td.SQLID and d.LASTUPDDTTM >= ?";
+					+ " where d.SQLID=td.SQLID and d.LASTUPDDTTM >= ?";
 			if (oprid != null)
 				q += " and d.LASTUPDOPRID = '" + oprid + "'";
 			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q);
@@ -277,7 +279,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	{
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td " 
-				+ " where td.SQLTYPE=2 and d.SQLID=td.SQLID and d.LASTUPDOPRID <> 'PPLSOFT'";  
+				+ " where d.SQLID=td.SQLID and d.LASTUPDOPRID <> 'PPLSOFT'";  
 		if (oprid != null)
 			q += " and d.LASTUPDOPRID = '" + oprid + "'";
 		PreparedStatement st0 =  dbconn.prepareStatement(q);

@@ -31,7 +31,21 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 	}
 	
 	public File getFileForSQL(SQLobject sqlObject, String extension) throws IOException {
-		File f = new File(rootDir, "SQL");
+		String f1;
+		if (sqlObject.sqlType == 2)
+			f1 = "SQL";
+		else
+			if (sqlObject.sqlType == 0)
+				f1 = "SQL_0";
+			else
+				if (sqlObject.sqlType == 1)
+					f1 = "SQL_AE";
+				else
+					if (sqlObject.sqlType == 6)
+						f1 = "XSLT";
+					else
+						f1 = "SQL" + sqlObject.sqlType;
+		File f = new File(rootDir, f1);
 		for ( int i = 0; i < sqlObject.getKeys().length; i++) // optional MARKET and/or DBTYPE
 			f = new File(f, sqlObject.getKeys()[i]); 
 		f.mkdirs();
@@ -50,10 +64,26 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 		return f;
 	}
 	public String getPathForSQL(SQLobject sqlObject, String extension) {
-		String f = "/SQL";
-		for ( int i = 0; i < sqlObject.getKeys().length; i++) // optional MARKET and/or DBTYPE
-			f = f + "/" + sqlObject.getKeys()[i]; 
-		return f + "/" + sqlObject.getKeys()[0]+ "." + extension;
+		
+		
+			String f;
+			if (sqlObject.sqlType == 2)
+				f = "/SQL";
+			else
+				if (sqlObject.sqlType == 0)
+					f = "/SQL_0";
+				else
+					if (sqlObject.sqlType == 1)
+						f = "/SQL_AE";
+					else
+						if (sqlObject.sqlType == 6)
+							f = "/XSLT";
+						else
+							f = "/SQL" + sqlObject.sqlType;
+			for ( int i = 0; i < sqlObject.getKeys().length; i++) // optional MARKET and/or DBTYPE
+				f = f + "/" + sqlObject.getKeys()[i]; 
+			return f + "/" + sqlObject.getKeys()[0]+ "." + extension;
+		
 	}
 
 }
