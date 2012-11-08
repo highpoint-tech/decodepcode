@@ -506,7 +506,7 @@ public class MergePeopleCodeTrees
     	File xsl = new File( compareDir, "items.xsl");
     	logger.info("Replacing " + xsl + " with modified version");
     	if (!xsl.exists())
-    		throw new IllegalArgumentException("Compare directory appears incorrect: expected it to contain 'items.xsl'");
+    		throw new IllegalArgumentException("Compare directory appears incorrect: should contain 'items.xsl'");
     	if  (!patchProg.exists())
     		throw new IllegalArgumentException("GNU patch program '" + patchProg + "' not found");
 //    	xslOrig.renameTo(new File(compareDir, "items.xsl.orig"));
@@ -571,10 +571,8 @@ public class MergePeopleCodeTrees
 				dir.mkdirs();
 				logger.warning("No "+ oldDemo + " tree found....");
 				ExtractPeopleCodeFromCompareReport.writeProjectDef(compareDir, new File(dir, oldDemo + ".items"));
-				System.out.println("\n\nCannot proceed. Create a PeopleTools project for the "+ oldDemo + " environment");
-				System.out.println("\tusing info in " + dir.getAbsolutePath());
-				System.out.println("\timport it in App Designer, and export it with all PeopleCode");
-				System.out.println("\tthe exported project is expected as " + oldDemoProjXML.getAbsolutePath());
+				System.out.println("\n\nCannot proceed. Migrate the project definition to the "+ oldDemo + " environment and export the project to file.");
+				System.out.println("\tThe exported project is expected as " + oldDemoProjXML.getAbsolutePath());
 				return;
 			}
 		}
@@ -603,7 +601,10 @@ public static void main(String[] args)
 	{
 		if (args.length < 4)
 		{
-			System.err.println("Expected parameters: <compare directory> <oldDMO> <newDMO> <newDEV>");
+			System.err.println("Expected parameters: <compare directory> <ancestor> <child1> <child2>");
+			System.err.println("\twhere <ancestor> is the name of the common ancestor environment (e.g. HRDMO89)");
+			System.err.println("\t<child1> is the name of one branch (e.g. HRDMO91)");
+			System.err.println("\tand <child2> is the name of the other branch (e.g. HRDEV)");			
 			return;
 		}
 		doExtractAndMergeCompareReports( new File(args[0]), args[1], args[2], args[3] );
