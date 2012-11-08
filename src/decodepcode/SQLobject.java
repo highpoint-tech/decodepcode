@@ -1,9 +1,11 @@
 package decodepcode;
 
 import java.util.Date;
+import java.util.logging.Logger;
 
 public class SQLobject implements PeopleToolsObject 
 {
+	static Logger logger = Logger.getLogger(SQLobject.class.getName());
 	String recName, sql, lastChangedBy, source, market, dbType;
 	int sqlType;
 	Date lastChanged;
@@ -47,7 +49,13 @@ public class SQLobject implements PeopleToolsObject
 			// AE SQL
 			// example SQLID: 'ADMWEBPRS   AcadIns Step01  S'
 			if (recName.length() != 29)
-				throw new IllegalArgumentException("expected SQLID with length 20 for AE: got '" + recName + "'");
+//				throw new IllegalArgumentException("expected SQLID with length 20 for AE: got '" + recName + "'");
+			{
+				logger.warning("Expected SQLID with length 29 for type 1 (AE): got '" + recName + "'" );
+				a = new String[1];
+				a[0] = recName.replace(' ', '_').replace('\t', '_');
+				return a;
+			}
 			int l = 6;
 			if ("GBL".equals(market))
 				l--;
