@@ -81,6 +81,7 @@ public abstract class PeopleCodeContainer implements PeopleCodeObject
 			sw.write(line);
 			sw.write(PeopleCodeParser.eol);
 		}
+		br.close();
 		setPeopleCodeText(sw.toString());
 	}
 	
