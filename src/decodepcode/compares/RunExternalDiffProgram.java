@@ -53,10 +53,10 @@ public class RunExternalDiffProgram
 		a.add(f2.toString());
 		String[] cmdArray = new String[a.size()] ;
 		a.toArray(cmdArray);
-		String cmd = "";
+/*		String cmd = "";
 		for (String s: cmdArray) 
 			cmd += s + " ";
-//		System.out.println(cmd);
+		System.out.println(cmd);*/
 		Process p = Runtime.getRuntime().exec(cmdArray);
 		InputStream stdout = p.getInputStream(), 
 					stderr = p.getErrorStream();
