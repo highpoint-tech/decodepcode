@@ -196,6 +196,7 @@ public class ProjectReader
 				w = null;
 			}
 		}
+		br.close();
 		return project;
 	}
 	
