@@ -244,9 +244,13 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 		if (objIDs[1-1] == 10  && objIDs[2-1] == 39 && objIDs[3-1] == 1  && objIDs[4-1] == 12)  objType=     47;
 		if (objIDs[1-1] == 10  && objIDs[2-1] == 39 && objIDs[3-1] == 1  && objIDs[4-1] == 2)  objType=     48;
 		if (objIDs[1-1] == 104  )  objType=     58;
+
+		// File reference (added 11/2012)
+		if (objIDs[1-1] == 121  && objIDs[2-1] == 122 && objIDs[3-1] == 0  && objIDs[4-1] == 0)  objType=     68;
+		
 		
 		if (objType < 0)
-			logger.severe("Could not determine the object type for "+ objIDs[1-1] + "/" + objIDs[2-1]+ "/" + objIDs[3-1] + "/" + objIDs[4-1]);
+			logger.warning("Could not determine the object type for "+ objIDs[1-1] + "/" + objIDs[2-1]+ "/" + objIDs[3-1] + "/" + objIDs[4-1]);
 		
 		return objType;
 	}
