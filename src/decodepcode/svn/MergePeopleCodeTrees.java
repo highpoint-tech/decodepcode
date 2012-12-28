@@ -10,7 +10,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Properties;
@@ -240,7 +239,7 @@ public class MergePeopleCodeTrees
         msg = "Import of oldDMO tree";
         info = clientManager.getCommitClient( ).doImport( oldDemoTree , demoURL , msg , true);
         logger.info("Imported oldDemo tree: "+ info);
-        final long revOldDemo = info.getNewRevision();
+        //final long revOldDemo = info.getNewRevision();
             
         msg= "Copy demo to custom";
         SVNCopyClient copyClient = clientManager.getCopyClient();
@@ -269,7 +268,7 @@ public class MergePeopleCodeTrees
         msg = "Commit of newDMO (in demo tree)";
         info = commitClient.doCommit(new File[] { wcRoot }, false, msg, null, null, false, 
                               false, SVNDepth.INFINITY);        
-        final long revNewDMO = info.getNewRevision();
+        //final long revNewDMO = info.getNewRevision();
 /*
         diffClient.doDiffStatus(reposURL, SVNRevision.create(revOldDemo), reposURL, SVNRevision.create(revNewDMO), 
         		true, true, new ISVNDiffStatusHandler() {				
