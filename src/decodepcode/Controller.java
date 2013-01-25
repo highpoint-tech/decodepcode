@@ -591,6 +591,12 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 					Class.forName("decodepcode.svn.SubversionProcessorFactory");
 		}
 		else
+		if ("ProcessToGit".equals(type))
+		{
+				factoryClass = (Class<ContainerProcessorFactory>) 
+					Class.forName("decodepcode.git.GitProcessorFactory");
+		}
+		else
 		if ("ProcessBinToFile".equals(type))
 		{
 			factoryClass = (Class<ContainerProcessorFactory>) 
