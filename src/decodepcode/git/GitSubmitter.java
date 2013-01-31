@@ -71,7 +71,7 @@ public class GitSubmitter
 			    git = Git.open(gitDir);
 			    gitWorkDir = gitDir;
 			    userMap = _userMap ;
-				System.out.println("Submitting PeopleCode and SQL definitions to " + gitDir + basePath);
+				System.out.println("Submitting PeopleCode and SQL definitions to " + new File(gitDir, basePath));
 			}
 
 			public void process(decodepcode.PeopleCodeObject c) throws IOException 
