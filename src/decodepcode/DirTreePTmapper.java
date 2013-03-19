@@ -32,7 +32,7 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 			f = new File(f, dirName);
 		}	
 		f.mkdirs();
-		f = new File(f, filterFileName(obj.getKeys()[last]));
+		f = new File(f, filterFileName(obj.getKeys()[last]) + "." + extension);
 		return f;
 	}	
 	public File getFileForSQL(SQLobject sqlObject, String extension) throws IOException {

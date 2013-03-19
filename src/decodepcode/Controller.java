@@ -476,6 +476,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 					w.write(p.getPeopleCodeText());
 				else
 					parser.parse(((PeopleCodeContainer) p), w);
+				w.close();
 				Date lastUpdt = p.getLastChangedDtTm();
 				if (lastUpdt != null)
 				{
