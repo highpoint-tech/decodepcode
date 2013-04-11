@@ -72,13 +72,17 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 				s = s + (i==0? "": ", ") + " pc.OBJECTID"+ (i+1) + ", pc.OBJECTVALUE"+ (i+1);
 			return s;
 		}
-		public String getWhere()
+		public String getWhere( String prefix)
 		{
 			String s = "";
 			for (int i = 0; i < nrOfValuesToCompare; i++)
-				s = s + (i==0? "": " and ") + " OBJECTVALUE"+ (i+1) + " = '" + values[i] + "'";
+				s = s + (i==0? "": " and ") + prefix + "OBJECTVALUE"+ (i+1) + " = '" + values[i] + "'";
 			return s;
-		}		
+		}
+		public String getWhere()
+		{
+			return getWhere(" ");
+		}
 		public String compositeKey()
 		{
 			String s;
@@ -135,7 +139,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 	}
 	boolean foundPeopleCode = false;
 	
-	
+
 	/**
 	 * 
 	 * @param dbconn Connection from which bytecode is to be read
@@ -143,7 +147,45 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 	 * @param rs ResultSet containing key info for the PCMPROG row(s)to be read; this ResultSet may or may not come
 	 * 			from the same database as the Connection parameter. 
 	 */
-	public JDBCPeopleCodeContainer( Connection dbconn, String dbowner, ResultSet rs) throws SQLException, ClassNotFoundException
+	public JDBCPeopleCodeContainer( Connection dbconn, String dbowner, ResultSet rs , boolean canAccessPROGTXT) throws SQLException, ClassNotFoundException
+	{
+		if (!canAccessPROGTXT)
+			initJDBCPeopleCodeContainerViaDecode(dbconn, dbowner, rs);
+		else
+		{
+			String cat = dbconn.getCatalog();
+			if (cat != null && cat.trim().length() > 0)
+				source = cat.trim();
+			keys = new KeySet(rs, false);
+			Statement st = dbconn.createStatement();
+			
+			//String q ="select LASTUPDDTTM, LASTUPDOPRID, PROGTXT from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " order by PROGSEQ";
+			String q = "select LASTUPDDTTM, LASTUPDOPRID, PCTEXT from " + dbowner + "PSPCMPROG pc, " + dbowner + "PSPCMTXT pt where" 
+					+ keys.getWhere(" pc.") 
+					+" and pc.OBJECTVALUE1=pt.OBJECTVALUE1 and pc.OBJECTVALUE2=pt.OBJECTVALUE2 and pc.OBJECTVALUE3=pt.OBJECTVALUE3 and pc.OBJECTVALUE4=pt.OBJECTVALUE4 and pc.OBJECTVALUE5=pt.OBJECTVALUE5 and pc.OBJECTVALUE6=pt.OBJECTVALUE6 and pc.OBJECTVALUE7=pt.OBJECTVALUE7 and pc.PROGSEQ=pt.PROGSEQ order by pc.PROGSEQ";
+			logger.info(q);
+			ResultSet rs2 = st.executeQuery(q);
+			StringBuffer sb = new StringBuffer();
+			while (rs2.next())
+			{	
+				setLastChangedDtTm(rs2.getTimestamp("LASTUPDDTTM"));
+				setLastChangedBy(rs2.getString("LASTUPDOPRID").trim());
+				sb.append(rs2.getString("PCTEXT"));
+				foundPeopleCode = true;
+			}
+			st.close();
+			this.setPeopleCodeText(sb.toString());
+		}
+	}
+
+	/**
+	 * 
+	 * @param dbconn Connection from which bytecode is to be read
+	 * @param dbowner schema for this connection
+	 * @param rs ResultSet containing key info for the PCMPROG row(s)to be read; this ResultSet may or may not come
+	 * 			from the same database as the Connection parameter. 
+	 */
+	void initJDBCPeopleCodeContainerViaDecode( Connection dbconn, String dbowner, ResultSet rs ) throws SQLException, ClassNotFoundException
 	{
 		String cat = dbconn.getCatalog();
 		if (cat != null && cat.trim().length() > 0)

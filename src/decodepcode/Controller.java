@@ -118,6 +118,21 @@ public class Controller {
 	{
 		for (ContainerProcessor processor0: processors)
 			processor0.aboutToProcess();
+		boolean canAccessPSPCMTXT = false;
+		if ("true".equalsIgnoreCase(props.getProperty("AlwaysDecode")))
+			logger.info("NOT trying to read PSPCMTXT because of AlwaysDecode parameter");
+		else
+		{
+			Statement st = null ;
+			try {
+				ContainerProcessor pc1 = processors.listIterator().next();
+				st = pc1.getJDBCconnection().createStatement();
+				st.executeQuery("select 'x' from "+ pc1.getDBowner() + "PSPCMTXT");
+				canAccessPSPCMTXT = true;
+				logger.info("Can read PSPCMTXT (tools >= 8.52)");
+			} catch (SQLException e) {logger.info("Can NOT access PSPCMTXT:"+ e.getMessage()); }
+			finally { if (st != null) st.close(); }
+		}
 		Set<String> processedKeys = new HashSet<String>();
 		for (ContainerProcessor processor1: processors)
 		{
@@ -143,7 +158,7 @@ public class Controller {
 				}
 				for (ContainerProcessor processor: processors)
 				{
-					JDBCPeopleCodeContainer c = new JDBCPeopleCodeContainer(processor.getJDBCconnection(), processor.getDBowner(), rs);
+					JDBCPeopleCodeContainer c = new JDBCPeopleCodeContainer(processor.getJDBCconnection(), processor.getDBowner(), rs, canAccessPSPCMTXT);
 					if (c.hasFoundPeopleCode())
 					{
 						processor.process(c);
