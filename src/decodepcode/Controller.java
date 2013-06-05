@@ -370,13 +370,21 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			: 
 				"||";
 		
-		String whereClause = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
+		/*String whereClause = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
 	    + " and ((pi.OBJECTVALUE2= pc.OBJECTVALUE2 and pi.OBJECTID2 = pc.OBJECTID2"
 	    + "   and (pi.OBJECTTYPE=58 or (pi.OBJECTVALUE3= pc.OBJECTVALUE3 and pi.OBJECTID3= pc.OBJECTID3))) "
 		+ " and ((pi.OBJECTVALUE4= pc.OBJECTVALUE4 and pi.OBJECTID4= pc.OBJECTID4)"
 		+ "  or (pi.OBJECTTYPE = 48 and pi.OBJECTVALUE4 like (pc.OBJECTVALUE4 " + concat + " '%' " + concat + "  pc.OBJECTVALUE5))) "
 		+ "  or (pi.OBJECTTYPE = 43 and pi.OBJECTVALUE2 like pc.OBJECTVALUE2 " + concat + " '%' and pi.OBJECTVALUE3 = pc.OBJECTVALUE6))  "
 		+ " and pi.PROJECTNAME='" + projectName + "' and pi.OBJECTTYPE in (8, 9, 39 ,40 ,42 ,43 ,44 ,46 ,47 ,48 ,58)";
+		*/
+		String whereClause = " , " + dbowner + "PSPROJECTITEM pi where  " 
+				+ " pi.OBJECTID1 = pc.OBJECTID1 AND pi.OBJECTVALUE1 = pc.OBJECTVALUE1 and ("
+				 +"(pi.OBJECTTYPE = 58 AND ( ( pi.OBJECTID3 = 0 AND pi.OBJECTID2 = pc.OBJECTID2 AND pi.OBJECTVALUE2 = pc.OBJECTVALUE2 ) OR ( pi.OBJECTID3 <> 0 AND pi.OBJECTID4 = 0 AND pi.OBJECTID2 = pc.OBJECTID2 AND pi.OBJECTVALUE2 = pc.OBJECTVALUE2 AND pi.OBJECTID3 = pc.OBJECTID3 AND pi.OBJECTVALUE3 = pc.OBJECTVALUE3 ) OR ( pi.OBJECTID3 <> 0 AND pi.OBJECTID4 <> 0 AND pi.OBJECTID2 = pc.OBJECTID2 AND pi.OBJECTVALUE2 = pc.OBJECTVALUE2 AND pi.OBJECTID3 = pc.OBJECTID3 AND pi.OBJECTVALUE3 = pc.OBJECTVALUE3 AND pi.OBJECTID4 = pc.OBJECTID4 AND pi.OBJECTVALUE4 = pc.OBJECTVALUE4 ))) or "
+				 +"   (pi.OBJECTTYPE = 48 and pi.OBJECTVALUE4 like (pc.OBJECTVALUE4 " + concat + " '%' " + concat + "  pc.OBJECTVALUE5)) OR"
+				 +"   (pi.OBJECTTYPE = 43 and pi.OBJECTVALUE2 like pc.OBJECTVALUE2 " + concat + " '%' and pi.OBJECTVALUE3 = pc.OBJECTVALUE6)  OR "
+				+   " ( pi.OBJECTTYPE NOT IN (43,48,58) AND pi.OBJECTID2 = pc.OBJECTID2 AND pi.OBJECTVALUE2 = pc.OBJECTVALUE2 AND pi.OBJECTID3 = pc.OBJECTID3 AND pi.OBJECTVALUE3 = pc.OBJECTVALUE3 AND pi.OBJECTID4 = pc.OBJECTID4 AND pi.OBJECTVALUE4 = pc.OBJECTVALUE4) "				
+				+ ") and pi.PROJECTNAME='" + projectName + "' and pi.OBJECTTYPE in (8, 9, 39 ,40 ,42 ,43 ,44 ,46 ,47 ,48 ,58)";
 		makeAndProcessContainers( whereClause, false, processors);
 		logger.info("Finished writing .pcode files for project " + projectName);		
 		processSQLforProject(projectName, processors); 		
