@@ -15,7 +15,11 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 	{
 		if (fname == null)
 			return null;
-		return fname.trim().replace("/", "_").replace("?", "_").replace("*", "_") .replace("<", "_lt_").replace(">", "_gt_");
+		// not allowed in Windows file names: \ / : " * ? < > |
+		String f1 = fname.trim().replace("/", "_").replace("?", "_").replace("*", "_") .replace("<", "_lt_").replace(">", "_gt_").replace("\\", "__").replace(":","_").replace('"', '_').trim();
+		while (f1.endsWith(".") && f1.length() > 0)
+			f1 = f1.substring(0,f1.length() -1);
+		return f1;
 	}
 	public File getFile(PeopleToolsObject obj, String extension)
 			throws IOException 
