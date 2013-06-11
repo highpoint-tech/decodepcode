@@ -429,7 +429,6 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			pw.println(sql.lastChangedBy);
 			pw.println(ProjectReader.df2.format(sql.lastChanged));
 			pw.close();
-			countSQL++;
 		}
 		public String getDBowner() {
 			return dBowner;
@@ -537,7 +536,6 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				pw.println(ProjectReader.df2.format(sql.lastChanged));
 				pw.close();
 			}
-			countSQL++;			
 		}
 		@Override
 		public void aboutToProcess() {
@@ -597,7 +595,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	
 	static void writeStats()
 	{
-		System.out.println("Ready; processed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)");		
+		System.out.println("Processed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)");		
 	}
 	
 	@SuppressWarnings("unchecked")
