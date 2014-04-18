@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -632,10 +633,42 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	
 	public static void doTest(List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		String whereClause = " where OBJECTVALUE1 = 'USER_PROFILE' and OBJECTID2 = 12";
+		ContainerProcessor processor1 = processors.get(0);
+		PeopleCodeParser parser = new PeopleCodeParser();;
 
-		makeAndProcessContainers( whereClause, true, processors);
-		logger.info("Finished writing .pcode files");		
+		String whereClause = " where PROGSEQ > 3";
+		String q = "select "+ KeySet.getList() + ", LASTUPDOPRID, LASTUPDDTTM from " 
+				+ processor1.getDBowner() + "PSPCMPROG pc " + whereClause;
+			logger.info(q);
+			PreparedStatement st0 =  processor1.getJDBCconnection().prepareStatement(q);
+			ResultSet rs = st0.executeQuery();
+			while (rs.next())
+			{
+					JDBCPeopleCodeContainer c = new JDBCPeopleCodeContainer(processor1.getJDBCconnection(), processor1.getDBowner(), rs, true);					
+					JDBCPeopleCodeContainer c2 = new JDBCPeopleCodeContainer(processor1.getJDBCconnection(), processor1.getDBowner(), rs, false);
+					if (!(c.hasFoundPeopleCode() && c2.hasFoundPeopleCode()))
+						continue;
+					String pc1 = c.getPeopleCodeText();
+					StringWriter w = new StringWriter();
+					parser.parse(c2, w);
+					String pc2 = w.toString();
+					if (pc1.length() > 100 && pc2.length() > 100)
+					{
+						String end1 = pc1.substring(pc1.length()-100).trim();
+						String end2 = pc2.substring(pc2.length()-100).trim();
+						if (end1.equals(end2))
+						{
+							System.out.println("OK");							
+						}
+						else
+						{
+							System.out.println("NOT matching: " + c.keys.compositeKey());
+							System.out.println(end1);
+							System.out.println(end2);
+							
+						}
+					}
+			}
 		
 	}
 	
@@ -718,13 +751,13 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			processor.setJDBCconnection(dbconn);
 			processor.setDBowner(dbowner);
 			
-/*
+
 			if (a.length >= 2 && "TEST".equalsIgnoreCase(a[1]))
 			{
 				doTest(processors);
 				return;
 			}
-*/			
+			
 			if (a.length >= 3 && "OPRID".equalsIgnoreCase(a[a.length-2]))
 				oprid = a[a.length-1];
 			
