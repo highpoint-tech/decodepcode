@@ -159,17 +159,22 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 			keys = new KeySet(rs, false);
 			Statement st = dbconn.createStatement();
 			
-			//String q ="select LASTUPDDTTM, LASTUPDOPRID, PROGTXT from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " order by PROGSEQ";
-			String q = "select LASTUPDDTTM, LASTUPDOPRID, PCTEXT from " + dbowner + "PSPCMPROG pc, " + dbowner + "PSPCMTXT pt where" 
-					+ keys.getWhere(" pc.") 
-					+" and pc.OBJECTVALUE1=pt.OBJECTVALUE1 and pc.OBJECTVALUE2=pt.OBJECTVALUE2 and pc.OBJECTVALUE3=pt.OBJECTVALUE3 and pc.OBJECTVALUE4=pt.OBJECTVALUE4 and pc.OBJECTVALUE5=pt.OBJECTVALUE5 and pc.OBJECTVALUE6=pt.OBJECTVALUE6 and pc.OBJECTVALUE7=pt.OBJECTVALUE7 and pc.PROGSEQ=pt.PROGSEQ order by pc.PROGSEQ";
+			String q ="select LASTUPDDTTM, LASTUPDOPRID from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " and PROGSEQ = 0";
+			logger.info(q);
+			ResultSet rs0 = st.executeQuery(q);
+			if (!rs0.next())
+				throw new SQLException("?? can't find PSPCMPROG record");
+			setLastChangedDtTm(rs0.getTimestamp("LASTUPDDTTM"));
+			setLastChangedBy(rs0.getString("LASTUPDOPRID").trim());
+			
+			q = "select PCTEXT from " + dbowner + "PSPCMTXT pt where" 
+					+ keys.getWhere(" pt.") 
+					 + " order by pt.PROGSEQ";
 			logger.info(q);
 			ResultSet rs2 = st.executeQuery(q);
 			StringBuffer sb = new StringBuffer();
 			while (rs2.next())
 			{	
-				setLastChangedDtTm(rs2.getTimestamp("LASTUPDDTTM"));
-				setLastChangedBy(rs2.getString("LASTUPDOPRID").trim());
 				sb.append(rs2.getString("PCTEXT"));
 				foundPeopleCode = true;
 			}
