@@ -162,8 +162,12 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 			String q ="select LASTUPDDTTM, LASTUPDOPRID from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " and PROGSEQ = 0";
 			logger.info(q);
 			ResultSet rs0 = st.executeQuery(q);
-			if (!rs0.next())
-				throw new SQLException("?? can't find PSPCMPROG record");
+			foundPeopleCode = rs0.next();
+			if (!foundPeopleCode)
+			{
+				logger.fine("Nothing found - setting foundPeopleCode=false for this environment");
+				return;
+			}
 			setLastChangedDtTm(rs0.getTimestamp("LASTUPDDTTM"));
 			setLastChangedBy(rs0.getString("LASTUPDOPRID").trim());
 			
