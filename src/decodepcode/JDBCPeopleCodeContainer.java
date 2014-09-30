@@ -166,6 +166,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 			if (!foundPeopleCode)
 			{
 				logger.fine("Nothing found - setting foundPeopleCode=false for this environment");
+				st.close();
 				return;
 			}
 			setLastChangedDtTm(rs0.getTimestamp("LASTUPDDTTM"));
