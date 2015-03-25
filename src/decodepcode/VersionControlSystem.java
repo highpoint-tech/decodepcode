@@ -1,7 +1,10 @@
 package decodepcode;
 
-public interface VersionControlSystem 
+import java.io.IOException;
+
+public interface VersionControlSystem
 {
-	public boolean existsInRepository( PeopleToolsObject obj);
-	public VersionControlSystem getAncestor();
+	public boolean existsInBranch( PeopleToolsObject obj) throws IOException;
+	public ContainerProcessor getAncestor();
+	public void setAncestor( ContainerProcessor _ancestor);
 }

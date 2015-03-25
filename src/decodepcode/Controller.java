@@ -23,6 +23,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.logging.Logger;
 
 import decodepcode.JDBCPeopleCodeContainer.KeySet;
@@ -111,6 +113,19 @@ public class Controller {
 		makeAndProcessContainers( whereClause, queryAllConnections, processors, null);
 	}
 	
+	/* recursive procedure to commit ancestors to some version control system branch */
+	public static void submitAncestors( ContainerProcessor vcsToSubmitTo, ContainerProcessor originatingProcessor, List<ContainerProcessor> processors, SortedMap<String, JDBCPeopleCodeContainer> pcodeVersions ) throws IOException
+	{
+		if (originatingProcessor == null || pcodeVersions.get(originatingProcessor.getTag()) == null)
+			return;
+		if (originatingProcessor.equals(vcsToSubmitTo))
+			throw new IllegalArgumentException("Ancestor loop detected! " + originatingProcessor.getTag());
+		if (originatingProcessor instanceof VersionControlSystem)
+			submitAncestors(vcsToSubmitTo, ((VersionControlSystem) originatingProcessor).getAncestor(), processors, pcodeVersions);
+		logger.info("Committing " + originatingProcessor.getTag() + " version to " + vcsToSubmitTo.getTag() );
+		vcsToSubmitTo.process(pcodeVersions.get(originatingProcessor.getTag()));		
+	}
+	
 	public static void makeAndProcessContainers( 
 				String whereClause, 
 				boolean queryAllConnections,
@@ -157,17 +172,39 @@ public class Controller {
 					}
 					processedKeys.add(key.compositeKey());
 				}
+				SortedMap<String, JDBCPeopleCodeContainer> pcodeVersions = new TreeMap<String, JDBCPeopleCodeContainer>();
 				for (ContainerProcessor processor: processors)
 				{
-					JDBCPeopleCodeContainer c = new JDBCPeopleCodeContainer(processor.getJDBCconnection(), processor.getDBowner(), rs, canAccessPSPCMTXT);
+					JDBCPeopleCodeContainer c = new JDBCPeopleCodeContainer(processor.getJDBCconnection(), processor.getDBowner(), rs, canAccessPSPCMTXT, processor.getTag());
 					if (c.hasFoundPeopleCode())
 					{
-						processor.process(c);
-						logger.fine("Completed JDBCPeopleCodeContainer for tag " + processor.getTag() );
+						pcodeVersions.put(processor.getTag(), c);
+						logger.fine("Created JDBCPeopleCodeContainer for tag " + processor.getTag() );
 					}
 					else
-						logger.fine("No PeopleCode found in environment "+ processor.getTag() + "; nothing to process");
+						logger.fine("No PeopleCode found in environment "+ processor.getTag() + "; nothing to process");					
 				}
+				/* When a PeopleCode segment is added to a version control system, first commit its ancestors to the 
+				 * same processor (branch), so that they appear in the repository history for this file.
+				 */
+				for (ContainerProcessor processor: processors)
+				{
+					JDBCPeopleCodeContainer c  = pcodeVersions.get(processor.getTag());
+					if (c != null 
+							&& c.hasFoundPeopleCode()
+							&& processor instanceof VersionControlSystem 
+							&& ((VersionControlSystem) processor).getAncestor() != null
+							&& !((VersionControlSystem) processor).existsInBranch(c)
+							)
+					{
+						logger.info("First commit of " + c.getCompositeKey() + " to " + processor.getTag() + "; first committing ancestor(s).");
+						submitAncestors( processor, ((VersionControlSystem) processor).getAncestor(),  processors, pcodeVersions );
+					}
+				}
+				
+				for (ContainerProcessor processor: processors)
+					if (pcodeVersions.containsKey(processor.getTag()))
+						processor.process(pcodeVersions.get(processor.getTag()));
 				countPPC++;
 			}
 			if (!queryAllConnections)
@@ -644,8 +681,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			ResultSet rs = st0.executeQuery();
 			while (rs.next())
 			{
-					JDBCPeopleCodeContainer c = new JDBCPeopleCodeContainer(processor1.getJDBCconnection(), processor1.getDBowner(), rs, true);					
-					JDBCPeopleCodeContainer c2 = new JDBCPeopleCodeContainer(processor1.getJDBCconnection(), processor1.getDBowner(), rs, false);
+					JDBCPeopleCodeContainer c = new JDBCPeopleCodeContainer(processor1.getJDBCconnection(), processor1.getDBowner(), rs, true, processor1.getTag());					
+					JDBCPeopleCodeContainer c2 = new JDBCPeopleCodeContainer(processor1.getJDBCconnection(), processor1.getDBowner(), rs, false, processor1.getTag());
 					if (!(c.hasFoundPeopleCode() && c2.hasFoundPeopleCode()))
 						continue;
 					String pc1 = c.getPeopleCodeText();
@@ -725,6 +762,23 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 					}
 				}
 			}						
+			
+			for (ContainerProcessor p: processors)
+				if (p instanceof VersionControlSystem)
+				{
+					String ancestor = "Base".equals(p.getTag())? 
+							props.getProperty("ancestor") 
+						: 
+							props.getProperty("ancestor" + p.getTag());
+					if (ancestor != null)
+					{
+						for (ContainerProcessor p1: processors)
+							if (p != p1 && ancestor.equals(p1.getTag()) && p1 instanceof VersionControlSystem)
+									((VersionControlSystem) p).setAncestor(p1);
+						if (((VersionControlSystem) p).getAncestor() == null )
+							throw new IllegalArgumentException("Invalid value for 'ancestor" + p.getTag() + "' property");
+					}
+				}
 			
 			if (inputIsPToolsProject)
 			{

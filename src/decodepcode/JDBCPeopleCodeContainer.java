@@ -138,24 +138,33 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 //		keyWords.put("RECORD", "");		
 	}
 	boolean foundPeopleCode = false;
-	
-
+	Connection originatingConnection;
+	String originatingName;
 	/**
 	 * 
 	 * @param dbconn Connection from which bytecode is to be read
 	 * @param dbowner schema for this connection
 	 * @param rs ResultSet containing key info for the PCMPROG row(s)to be read; this ResultSet may or may not come
-	 * 			from the same database as the Connection parameter. 
+	 * 			from the same database as the Connection parameter
+	 * @param canAccessPROGTXT if true, get plain text from PSPROGTEXT
+	 * @param sourceDB  
 	 */
-	public JDBCPeopleCodeContainer( Connection dbconn, String dbowner, ResultSet rs , boolean canAccessPROGTXT) throws SQLException, ClassNotFoundException
+	public JDBCPeopleCodeContainer( Connection dbconn, 
+			String dbowner, 
+			ResultSet rs , 
+			boolean canAccessPROGTXT,
+			String dbName) throws SQLException, ClassNotFoundException
 	{
+		originatingName = dbName;
+		String cat = dbconn.getCatalog();
+		if (cat != null && cat.trim().length() > 0)
+			source = cat.trim();
+		else
+			source = dbName;
 		if (!canAccessPROGTXT)
 			initJDBCPeopleCodeContainerViaDecode(dbconn, dbowner, rs);
 		else
 		{
-			String cat = dbconn.getCatalog();
-			if (cat != null && cat.trim().length() > 0)
-				source = cat.trim();
 			keys = new KeySet(rs, false);
 			Statement st = dbconn.createStatement();
 			
@@ -186,6 +195,8 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 			st.close();
 			this.setPeopleCodeText(sb.toString());
 		}
+		if (foundPeopleCode)
+			originatingConnection = dbconn;
 	}
 
 	/**
@@ -197,9 +208,6 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 	 */
 	void initJDBCPeopleCodeContainerViaDecode( Connection dbconn, String dbowner, ResultSet rs ) throws SQLException, ClassNotFoundException
 	{
-		String cat = dbconn.getCatalog();
-		if (cat != null && cat.trim().length() > 0)
-			source = cat.trim();
 		keys = new KeySet(rs, false);
 		Statement st = dbconn.createStatement();
 		
@@ -352,5 +360,13 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 
 	public int[] getKeyTypes() {
 		return keys.objIDs;
+	}
+
+	public Connection getOriginatingConnection() {
+		return originatingConnection;
+	}
+
+	public String getOriginatingName() {
+		return originatingName;
 	}
 }

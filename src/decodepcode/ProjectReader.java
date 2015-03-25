@@ -58,8 +58,10 @@ public class ProjectReader
 	{
 	}
 		
-	public static SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd-HH.mm.ss.000000"), //2006-10-24-15.42.43.000000
-		df2 = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss");
+	public static SimpleDateFormat 
+		df  = new SimpleDateFormat("yyyy-MM-dd-HH.mm.ss.000000"), //2006-10-24-15.42.43.000000
+		df2 = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss"), 
+		df3 = new SimpleDateFormat("yyyy-MM-dd");
 	
 	static String formatEOLchars(String in) throws IOException
 	{

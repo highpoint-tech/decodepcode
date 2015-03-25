@@ -99,11 +99,12 @@ import decodepcode.PToolsObjectToFileMapper;
 				return;
 			}
 			basePath = properties.getProperty("gitbase" + suffix);
-			if (basePath == null)
+/*			if (basePath == null)
 			{
 				logger.severe("No gitbase" + suffix + " entry in properties");
 				return;
 			}
+*/			
 			String u0 = properties.getProperty("gituser"); // first process this one, so that it will be the default
 			if (u0 != null)
 				addGITuser("svnuser", u0);

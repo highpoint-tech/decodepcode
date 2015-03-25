@@ -30,7 +30,7 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 		} catch (SVNException ex)
 		{
 			logger.severe("?? " + ex.getMessage());
-			throw new IllegalArgumentException("Pzroblem in getContainerProcessor", ex);
+			throw new IllegalArgumentException("Problem in getContainerProcessor", ex);
 		}
 	}
 
@@ -68,11 +68,12 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 			return;
 		}
 		basePath = properties.getProperty("svnbase" + suffix);
-		if (basePath == null)
+/*		if (basePath == null)
 		{
 			logger.severe("No svnbase" + suffix + " entry in properties");
 			return;
 		}
+*/
 		String u0 = properties.getProperty("svnuser"); // first process this one, so that it will be the default
 		if (u0 != null)
 			setSVNuser("svnuser", u0);

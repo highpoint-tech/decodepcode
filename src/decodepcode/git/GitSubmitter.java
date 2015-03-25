@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
@@ -14,10 +15,13 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.UnmergedPathsException;
 
 import decodepcode.ContainerProcessor;
+import decodepcode.JDBCPeopleCodeContainer;
 import decodepcode.PToolsObjectToFileMapper;
 import decodepcode.PeopleCodeParser;
+import decodepcode.PeopleToolsObject;
 import decodepcode.ProjectReader;
 import decodepcode.SQLobject;
+import decodepcode.VersionControlSystem;
 import decodepcode.git.GitProcessorFactory.GitUser;
 
 /* Submit to local Git repository with JGit */
@@ -52,13 +56,24 @@ public class GitSubmitter
 			CommitCommand commit = git.commit();
 			commit.setMessage(commitStr).setAuthor(user.user, user.email).setCommitter("Decode Peoplecode", "nobody@dummy.org").call();
 	    }
-
+	    private boolean fileExistsInRepository( String filePath)
+	    {
+	    	int lastSlash = filePath.lastIndexOf("/");
+	    	if (lastSlash < 1)
+	    		throw new IllegalArgumentException("Expected file name with directory path, got " + filePath);
+	    	String dirPath = filePath.substring(0, lastSlash), name = filePath.substring(lastSlash + 1);
+		    String path1 = dirPath.replace("/", System.getProperty("file.separator"));
+		    File dir1 = new File(gitWorkDir, path1);
+			File myfile = new File(dir1, name);
+		    return myfile.exists(); // only checks if file exists in work directory - room for improvement here
+	    }
 	    
-	    public class GitContainerProcessor extends ContainerProcessor
+	    public class GitContainerProcessor extends ContainerProcessor implements VersionControlSystem
 		{	    	
 			String basePath;
 			PToolsObjectToFileMapper mapper;
 			PeopleCodeParser parser = new PeopleCodeParser();
+			ContainerProcessor ancestor;
 			
 			GitContainerProcessor(
 					HashMap<String, GitUser> _userMap,
@@ -71,11 +86,14 @@ public class GitSubmitter
 			    git = Git.open(gitDir);
 			    gitWorkDir = gitDir;
 			    userMap = _userMap ;
-				System.out.println("Submitting PeopleCode and SQL definitions to " + new File(gitDir, basePath));
+			    if (basePath != null)
+			    	System.out.println("Submitting PeopleCode and SQL definitions to " + new File(gitDir, basePath));
 			}
 
 			public void process(decodepcode.PeopleCodeObject c) throws IOException 
 			{
+				if (basePath == null)
+					return;
 				StringWriter w = new StringWriter();
 				if (c.hasPlainPeopleCode()) // why decode the bytecode if we have the plain text...
 					w.write(c.getPeopleCodeText());
@@ -85,11 +103,14 @@ public class GitSubmitter
 				}
 				String path = basePath + mapper.getPath(c, "pcode");
 				try {
-					addFile( c.getLastChangedBy(),
-							path, 
-						"Saved at " + ProjectReader.df2.format(c.getLastChangedDtTm()) + " by " + c.getLastChangedBy()
-						+ (c.getSource() == null? "" : " (source: " + c.getSource() + ")")  , 
-						w.toString().getBytes() );
+					String comment = "";
+					if (c instanceof JDBCPeopleCodeContainer)
+						if (getJDBCconnection().equals(((JDBCPeopleCodeContainer) c).getOriginatingConnection()))
+							comment = "Saved at " + ProjectReader.df2.format(c.getLastChangedDtTm()) + " by " + c.getLastChangedBy();
+						else
+							comment = "Version in " + ((JDBCPeopleCodeContainer) c).getSource() + " retrieved on " + ProjectReader.df3.format(new Date()); 
+					
+					addFile( c.getLastChangedBy(), path, comment, w.toString().getBytes() );
 				}  catch (UnmergedPathsException se) {
 					IOException e = new IOException("Error submitting pcode to Git");
 					e.initCause(se);
@@ -103,6 +124,8 @@ public class GitSubmitter
 
 			public void processSQL(SQLobject sql) throws IOException 
 			{
+				if (basePath == null)
+					return;
 				String path = basePath + mapper.getPathForSQL(sql, "sql");
 				try {
 					addFile(sql.getLastChangedBy(),
@@ -122,7 +145,23 @@ public class GitSubmitter
 
 			@Override
 			public void aboutToProcess() {
-				System.out.println("Submitting to Git, base path = " + basePath);			
+				if (basePath != null)
+					System.out.println("Submitting to Git, base path = " + basePath);			
+			}
+
+			public boolean existsInBranch(PeopleToolsObject obj)
+					throws IOException {
+				if (basePath == null)
+					throw new IllegalArgumentException("No base path set for " + getTag());
+				return fileExistsInRepository(basePath + mapper.getPath(obj, "pcode"));
+			}
+
+			public ContainerProcessor getAncestor() {
+				return ancestor;
+			}
+
+			public void setAncestor(ContainerProcessor _ancestor) {
+				ancestor = _ancestor;				
 			}
 		}
 }

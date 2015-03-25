@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
@@ -26,10 +27,13 @@ import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
 import decodepcode.ContainerProcessor;
+import decodepcode.JDBCPeopleCodeContainer;
 import decodepcode.PToolsObjectToFileMapper;
 import decodepcode.PeopleCodeParser;
+import decodepcode.PeopleToolsObject;
 import decodepcode.ProjectReader;
 import decodepcode.SQLobject;
+import decodepcode.VersionControlSystem;
 
 /**
  * 
@@ -154,6 +158,15 @@ public class SubversionSubmitter
         editor.closeDir();
         editor.closeEdit();
     }
+    
+    static boolean fileExistsInRepository( SVNRepository repository, 
+			String filePath) throws SVNException
+    {
+    	SVNNodeKind nodeKind = repository.checkPath( filePath, -1);
+        if (nodeKind == SVNNodeKind.DIR) 
+            throw new SVNException(SVNErrorMessage.create(SVNErrorCode.UNKNOWN, "Entry at URL ''{0}'' is a directory while a file was expected", filePath));
+       return nodeKind == SVNNodeKind.FILE;            	
+    }
 
     static interface AuthManagerMapper
     {
@@ -181,7 +194,7 @@ public class SubversionSubmitter
     	}
     }
     
-    public static class SubversionContainerProcessor extends ContainerProcessor
+    public static class SubversionContainerProcessor extends ContainerProcessor implements VersionControlSystem
 	{
     	
 		SVNRepository repository;
@@ -189,6 +202,7 @@ public class SubversionSubmitter
 		PToolsObjectToFileMapper mapper;
 		PeopleCodeParser parser = new PeopleCodeParser();
 		AuthManagerMapper authMapper;
+		ContainerProcessor ancestor = null;
 		
 		SubversionContainerProcessor( SVNURL url, 
 				String _basePath, 
@@ -199,11 +213,14 @@ public class SubversionSubmitter
 			basePath = _basePath;
 			mapper = _mapper;
 			authMapper = _authMapper;
-			System.out.println("Submitting PeopleCode and SQL definitions to " + url + basePath);
+			if (basePath != null)
+				System.out.println("Submitting PeopleCode and SQL definitions to " + url + basePath);
 		}
 
 		public void process(decodepcode.PeopleCodeObject c) throws IOException 
 		{
+			if (basePath == null)
+				return;
 			StringWriter w = new StringWriter();
 			if (c.hasPlainPeopleCode()) // why decode the bytecode if we have the plain text...
 				w.write(c.getPeopleCodeText());
@@ -219,10 +236,13 @@ public class SubversionSubmitter
 					logger.info("setting mapped AuthManager for user " + c.getLastChangedBy());
 					repository.setAuthenticationManager(user);
 				}
-				addFile(repository, path, 
-					"Saved at " + ProjectReader.df2.format(c.getLastChangedDtTm()) + " by " + c.getLastChangedBy()
-					+ (c.getSource() == null? "" : " (source: " + c.getSource() + ")")  , 
-					w.toString().getBytes() );
+				String comment = "";
+				if (c instanceof JDBCPeopleCodeContainer)
+					if (getJDBCconnection().equals(((JDBCPeopleCodeContainer) c).getOriginatingConnection()))
+						comment = "Saved at " + ProjectReader.df2.format(c.getLastChangedDtTm()) + " by " + c.getLastChangedBy();
+					else
+						comment = "Version in " + ((JDBCPeopleCodeContainer) c).getSource() + " retrieved on " + ProjectReader.df3.format(new Date()); 
+				addFile(repository, path, comment, w.toString().getBytes() );
 			} catch (SVNException se)
 			{
 				IOException e = new IOException("Error submitting pcode to Subversion");
@@ -233,6 +253,8 @@ public class SubversionSubmitter
 
 		public void processSQL(SQLobject sql) throws IOException 
 		{
+			if (basePath == null)
+				return;
 			String path = basePath + mapper.getPathForSQL(sql, "sql");
 			try {
 				ISVNAuthenticationManager user = authMapper.getAuthManager(sql.getLastChangedBy());
@@ -255,7 +277,29 @@ public class SubversionSubmitter
 
 		@Override
 		public void aboutToProcess() {
-			System.out.println("Submitting to SVN, base path = " + basePath);			
+			if (basePath != null)
+				System.out.println("Submitting to SVN, base path = " + basePath);			
+		}
+
+		public ContainerProcessor getAncestor() {
+			return ancestor;
+		}
+
+		public boolean existsInBranch(PeopleToolsObject obj) throws IOException {
+			try
+			{
+				return fileExistsInRepository(repository, basePath + mapper.getPath(obj, "pcode"));
+			} catch (SVNException ex)
+			{
+				IOException se = new IOException("Error determining if file exists in Subversion");
+				se.initCause(ex);
+				throw se; 								
+			}
+		}
+
+
+		public void setAncestor(ContainerProcessor _ancestor) {
+			ancestor = _ancestor;
 		}
 	}
 	
