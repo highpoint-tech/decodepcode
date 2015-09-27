@@ -61,6 +61,7 @@ public class Controller {
 	static boolean reverseEngineer= false; 
 	static long countPPC=0, countSQL= 0;
 	static String oprid = null;
+	static boolean onlyCustom = false;
 	final static File lastTimeFile = new File("last-time.txt");
 	private static Set<String> recsProcessed = new HashSet<String>(); // for SQL IDs 
 
@@ -312,6 +313,9 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 					+ " where d.SQLID=td.SQLID and d.LASTUPDDTTM >= ?";
 			if (oprid != null)
 				q += " and d.LASTUPDOPRID = '" + oprid + "'";
+			if (onlyCustom)
+				q += " and d.LASTUPDOPRID <> 'PPLSOFT' ";
+
 			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q);
 			st0.setTimestamp(1, date);
 			logger.info(q);
@@ -615,6 +619,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		String whereClause = " where LASTUPDDTTM > ?";
 		if (oprid != null)
 			whereClause += " and LASTUPDOPRID = '" + oprid + "'";
+		if (onlyCustom)
+			whereClause += " and LASTUPDOPRID <> 'PPLSOFT' ";
 
 		// with queryAllConnections = true, so that all environments are tracked with this query:
 		makeAndProcessContainers( whereClause, true, processors, new DateSetter(fromDate));
@@ -814,6 +820,9 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			
 			if (a.length >= 3 && "OPRID".equalsIgnoreCase(a[a.length-2]))
 				oprid = a[a.length-1];
+
+			if (a.length >= 2 && "CUSTOM".equalsIgnoreCase(a[a.length-1]))
+				onlyCustom = true;
 			
 			if (a.length > 2 && "since".equalsIgnoreCase(a[1]))
 			{
@@ -836,6 +845,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				writeStats();
 				return;
 			}
+			
 			if (a.length >= 2 && "since-last-time".equalsIgnoreCase(a[1]))
 			{
 				if (!lastTimeFile.exists())
