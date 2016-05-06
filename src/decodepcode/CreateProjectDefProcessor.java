@@ -512,6 +512,12 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		
 	}
 	
+	@Override
+	public void processCONT(CONTobject cont) throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+	
 	public static void main( String[] a)
 	{
 		try {

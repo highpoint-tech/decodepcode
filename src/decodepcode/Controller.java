@@ -3,6 +3,7 @@ package decodepcode;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -59,7 +60,9 @@ public class Controller {
 	static String dbowner;
 	static boolean writePPC = false;
 	static boolean reverseEngineer= false; 
-	static long countPPC=0, countSQL= 0;
+	static long countPPC=0, countSQL=0, countCONT=0;
+	static boolean getContentHtml;
+	static boolean getContentImage;
 	static String oprid = null;
 	static boolean onlyCustom = false;
 	final static File lastTimeFile = new File("last-time.txt");
@@ -71,6 +74,8 @@ public class Controller {
 		try
 		{
 			props= readProperties();
+			getContentHtml = "true".equalsIgnoreCase(props.getProperty("getContentHtml"));
+			getContentImage = "true".equalsIgnoreCase(props.getProperty("getContentImage"));
 		} catch (IOException ex)
 		{
 			logger.severe("Unable to read properties : " + ex);
@@ -80,7 +85,7 @@ public class Controller {
 	public static List<PeopleCodeObject> getPeopleCodeContainers(String whereClause, boolean queryAllConnections) throws ClassNotFoundException, SQLException
 	{
 		List<PeopleCodeObject> list = new ArrayList<PeopleCodeObject>();
-		StoreInList s = new StoreInList(list, null);
+		StoreInList s = new StoreInList(list, null, null);
 		List<ContainerProcessor> processors = new ArrayList<ContainerProcessor>();
 		processors.add(s);
 		try {
@@ -345,7 +350,157 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		processSQLs(rs, processors);
 		st0.close();
 	}
+
+	/**
+	 * Process rows from PSCONTDEFN table
+	 * @param rs
+	 * @param processors
+	 * @throws SQLException
+	 * @throws IOException
+	 */
+	static void processCONTs(ResultSet rs, List<ContainerProcessor> processors) throws SQLException, IOException
+	{
 		
+		while (rs.next())
+		{
+			String contName = rs.getString("CONTNAME");
+			int contType = rs.getInt("CONTTYPE");
+			int altContNum = rs.getInt("ALTCONTNUM");
+			
+			String contKey = "CONT:" + contName + "-" + contType + "-" + altContNum;
+			if (recsProcessed.contains(contKey)) {
+				logger.info("Already processed PSCONTDEFN record ID "+ contKey + "; skipping");
+				continue;
+			}
+			recsProcessed.add(contKey);
+			
+			for (ContainerProcessor processor: processors)
+			{
+				Timestamp d = rs.getTimestamp("LASTUPDDTTM");
+				Date date = d == null ? new Date(0) : new Date(d.getTime());
+				
+				CONTobject cont = new CONTobject(contName, rs.getString("CONTFMT"), rs.getString("LASTUPDOPRID"), 
+						altContNum, contType, date, rs.getBytes("CONTDATA"));
+				
+				processor.processCONT(cont);
+				
+			}
+
+			countCONT++;
+			
+		}
+		
+	}
+
+	public static void processCONTforProject(String projectName, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
+	{
+		
+		if (!(getContentHtml || getContentImage)){
+			return;
+		}
+		
+		String q = "select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.LASTUPDOPRID, c.LASTUPDDTTM, c.CONTDATA from "
+				+ dbowner + "PSCONTDEFN c, " + dbowner + "PSPROJECTITEM pi " 
+				+ "where c.CONTNAME = pi.OBJECTVALUE1 and to_char(c.CONTTYPE) = pi.OBJECTVALUE2 and pi.OBJECTID1 in (90, 91) "
+				+ "and pi.PROJECTNAME='" + projectName + "' ";
+		
+		if (getContentHtml && getContentImage){
+			q += " and c.CONTTYPE in (1,4) ";
+		} else if (getContentHtml) {
+			q += " and c.CONTTYPE = 4 ";
+		} else if (getContentImage) {
+			q += " and c.CONTTYPE = 1 ";
+		}
+		
+		Statement st0 =  dbconn.createStatement();
+		logger.info(q);
+		ResultSet rs = st0.executeQuery(q);		
+		processCONTs(rs, processors);
+		st0.close();
+		
+		logger.info("Finished writing content files for project " + projectName);
+	}
+	
+	
+	/**
+	 * Get content (HTML, Images) from PSCONTDEFN table - since date
+	 * @param date
+	 * @param processors
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 * @throws IOException
+	 */
+	public static void processCONTsinceDate(java.sql.Timestamp date, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
+	{
+		if (!(getContentHtml || getContentImage)){
+			return;
+		}
+		
+		// query all environments with the query on LASTUPDDTTM" 
+		for (ContainerProcessor processor: processors)
+		{
+			String q = "select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.LASTUPDOPRID, c.LASTUPDDTTM, c.CONTDATA from "
+					+ processor.getDBowner() + "PSCONTDEFN c where c.LASTUPDDTTM >= ?";
+			
+			if (oprid != null)
+				q += " and c.LASTUPDOPRID = '" + oprid + "'";
+			if (onlyCustom)
+				q += " and c.LASTUPDOPRID <> 'PPLSOFT' ";
+			
+			if (getContentHtml && getContentImage){
+				q += " and c.CONTTYPE in (1,4) ";
+			} else if (getContentHtml) {
+				q += " and c.CONTTYPE = 4 ";
+			} else if (getContentImage) {
+				q += " and c.CONTTYPE = 1 ";
+			}
+			
+			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q);
+			st0.setTimestamp(1, date);
+			logger.info(q);
+			ResultSet rs = st0.executeQuery();
+			processCONTs(rs, processors);
+			st0.close();
+			
+		}
+		
+	
+	}
+	
+	/**
+	 * Get content (HTML, Images) from PSCONTDEFN table - custom
+	 * @param processors
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 * @throws IOException
+	 */
+	public static void processCustomCONTs(List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
+	{
+		if (!(getContentHtml || getContentImage)){
+			return;
+		}
+		
+		String q = "select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.LASTUPDOPRID, c.LASTUPDDTTM, c.CONTDATA from "
+				+ dbowner + "PSCONTDEFN c where c.LASTUPDOPRID <> 'PPLSOFT'";
+		if (oprid != null)
+			q += " and c.LASTUPDOPRID = '" + oprid + "'";
+		
+		if (getContentHtml && getContentImage){
+			q += " and c.CONTTYPE in (1,4) ";
+		} else if (getContentHtml) {
+			q += " and c.CONTTYPE = 4 ";
+		} else if (getContentImage) {
+			q += " and c.CONTTYPE = 1 ";
+		}
+		
+		PreparedStatement st0 =  dbconn.prepareStatement(q);
+		logger.info(q);
+		ResultSet rs = st0.executeQuery();		
+		processCONTs(rs, processors);
+		st0.close();
+
+	}
+
 	public static List<PeopleCodeObject> getPeopleCodeContainersForProject(Properties props, String projectName) throws ClassNotFoundException, SQLException
 	{
 		String where = " , " + dbowner + "PSPROJECTITEM pi where  (pi.OBJECTVALUE1= pc.OBJECTVALUE1 and pi.OBJECTID1= pc.OBJECTID1) "
@@ -430,7 +585,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		makeAndProcessContainers( whereClause, false, processors);
 		logger.info("Finished writing .pcode files for project " + projectName);		
 		processSQLforProject(projectName, processors); 		
-		logger.info("Finished writing .sql files for project " + projectName);		
+		logger.info("Finished writing .sql files for project " + projectName);
+
+		processCONTforProject(projectName, processors);
+		
 	}
 
 	
@@ -472,6 +630,29 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			pw.println(ProjectReader.df2.format(sql.lastChanged));
 			pw.close();
 		}
+		
+		@Override
+		public void processCONT(CONTobject cont) throws IOException {
+			File contFile = mapper.getFileForCONT(cont, false);
+			logger.info("Creating " + contFile);
+			contFile.createNewFile();
+			FileOutputStream contFileOs = new FileOutputStream(contFile);
+			contFileOs.write(cont.getContDataBytes());
+			contFileOs.flush();
+			contFileOs.close();
+			/*FileWriter fw = new FileWriter(contFile);
+			fw.write(cont.getContData());
+			fw.close();*/
+			
+			if (cont.getLastChangedBy() != null && cont.getLastChangedDtTm() != null) 	{
+				File infoFile = mapper.getFileForCONT(cont, true);
+				PrintWriter pw = new PrintWriter(infoFile);
+				pw.println(cont.getLastChangedBy());
+				pw.println(ProjectReader.df2.format(cont.getLastChangedDtTm()));
+				pw.close();
+			}
+		}
+		
 		public String getDBowner() {
 			return dBowner;
 		}
@@ -579,6 +760,31 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				pw.close();
 			}
 		}
+		
+		@Override
+		public void processCONT(CONTobject cont) throws IOException {
+			
+			File contFile = mapper.getFileForCONT(cont, false);
+			logger.info("Creating " + contFile);
+			contFile.createNewFile();
+			FileOutputStream contFileOs = new FileOutputStream(contFile);
+			contFileOs.write(cont.getContDataBytes());
+			contFileOs.flush();
+			contFileOs.close();
+			/*FileWriter fw = new FileWriter(contFile);
+			fw.write(cont.getContData());
+			fw.close();*/
+
+			if (cont.getLastChangedBy() != null && cont.getLastChangedDtTm() != null) 	{
+				File infoFile = mapper.getFileForCONT(cont, true);
+				PrintWriter pw = new PrintWriter(infoFile);
+				pw.println(cont.getLastChangedBy());
+				pw.println(ProjectReader.df2.format(cont.getLastChangedDtTm()));
+				pw.close();
+			}
+			
+		}
+		
 		@Override
 		public void aboutToProcess() {
 			if (root != null)
@@ -639,7 +845,11 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	
 	static void writeStats()
 	{
-		System.out.println("Processed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)");		
+		String msg = "Processed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)";
+		if (getContentHtml || getContentImage){
+			msg = msg + ", and " + countCONT + " Content definition(s)";
+		}
+		System.out.println(msg);
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -831,6 +1041,9 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				java.sql.Timestamp d = new java.sql.Timestamp(time.getTime());
 				writeDecodedRecentPPC(d, processors);
 				processSQLsinceDate( d, processors);
+				
+				processCONTsinceDate(d, processors);
+				
 				writeStats();
 				return;
 			}
@@ -842,6 +1055,9 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				java.sql.Timestamp d = new java.sql.Timestamp(time.getTime() - 24 * 60 * 60 * 1000 * days);
 				writeDecodedRecentPPC(d, processors);
 				processSQLsinceDate( d, processors);
+				
+				processCONTsinceDate(d, processors);
+				
 				writeStats();
 				return;
 			}
@@ -871,6 +1087,9 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 						+ (timeOffset == null? "" : "( with a " + timeOffset + "-min offset)"));
 				writeDecodedRecentPPC(new Timestamp(d.getTime()), processors);
 				processSQLsinceDate( new Timestamp(d.getTime()), processors);
+				
+				processCONTsinceDate(new Timestamp(d.getTime()), processors);
+				
 				writeStats();
 				return;				
 			}

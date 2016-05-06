@@ -26,6 +26,7 @@ import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
+import decodepcode.CONTobject;
 import decodepcode.ContainerProcessor;
 import decodepcode.JDBCPeopleCodeContainer;
 import decodepcode.PToolsObjectToFileMapper;
@@ -273,6 +274,31 @@ public class SubversionSubmitter
 				e.initCause(se);
 				throw e; 				
 			}
+		}
+		
+		@Override
+		public void processCONT(CONTobject cont) throws IOException {
+			if (basePath == null)
+				return;
+			String path = basePath + mapper.getPathForCONT(cont, false);
+			
+			try {
+				ISVNAuthenticationManager user = authMapper.getAuthManager(cont.getLastChangedBy());
+				if (user != null) {
+					logger.info("Setting mapped AuthManager for user " + cont.getLastChangedBy());
+					repository.setAuthenticationManager(user);
+				}
+				if (cont.getLastChangedDtTm() != null && cont.getLastChangedBy() != null)
+					addFile(repository, path, 
+							"Saved at " + ProjectReader.df2.format(cont.getLastChangedDtTm()) + " by " + cont.getLastChangedBy(), 
+							cont.getContDataBytes()
+						);
+			} catch (SVNException se) {
+				IOException e = new IOException("Error submitting Content to Subversion");
+				e.initCause(se);
+				throw e;
+			}
+			
 		}
 
 		@Override

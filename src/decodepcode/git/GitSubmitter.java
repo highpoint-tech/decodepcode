@@ -14,6 +14,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.UnmergedPathsException;
 
+import decodepcode.CONTobject;
 import decodepcode.ContainerProcessor;
 import decodepcode.JDBCPeopleCodeContainer;
 import decodepcode.PToolsObjectToFileMapper;
@@ -141,6 +142,28 @@ public class GitSubmitter
 					e.initCause(se);
 					throw e; 				
 				}
+			}
+
+			@Override
+			public void processCONT(CONTobject cont) throws IOException {
+				if (basePath == null)
+					return;
+				String path = basePath + mapper.getPathForCONT(cont, false);
+				try {
+					addFile(cont.getLastChangedBy(),
+							path, 
+							"Saved at " + ProjectReader.df2.format(cont.getLastChangedDtTm()) + " by " + cont.getLastChangedBy(), 
+							cont.getContDataBytes());
+				} catch (UnmergedPathsException se) {
+					IOException e = new IOException("Error submitting Content to Git");
+					e.initCause(se);
+					throw e;
+				} catch (GitAPIException se) {
+					IOException e = new IOException("Error submitting Content to Git");
+					e.initCause(se);
+					throw e;
+				}
+				
 			}
 
 			@Override

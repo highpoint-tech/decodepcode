@@ -14,6 +14,7 @@ public abstract class ContainerProcessor
 	public void finishedProcessing() {} 
 	abstract public void process( PeopleCodeObject c) throws IOException;
 	abstract public void processSQL( SQLobject sql) throws IOException;
+	abstract public void processCONT(CONTobject cont) throws IOException;
 	public String getDBowner() {
 		return dBowner;
 	}

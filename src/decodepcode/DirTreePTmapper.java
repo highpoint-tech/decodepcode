@@ -94,4 +94,36 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 			return f + "/" + filterFileName(sqlObject.getKeys()[0])+ "." + extension;
 		
 	}
+	
+	public File getFileForCONT(CONTobject contObject, boolean lastUpdateExt) throws IOException {
+		
+		String pathName = getPathForCONT(contObject, lastUpdateExt);
+		String path = pathName.substring(1,pathName.lastIndexOf('/'));
+		String name = pathName.substring(pathName.lastIndexOf('/'));
+		
+		File folder = new File(rootDir, path);
+		folder.mkdirs();
+		File file = new File(folder.getAbsolutePath(), name);
+		
+		return file;
+		
+	}
+	
+	public String getPathForCONT(CONTobject contObject, boolean lastUpdateExt){
+		
+		String path, extension;
+		if (contObject.contType == 4){
+			path = "HTML";
+			extension = lastUpdateExt ? "last_update" : "html";
+		} else { // == 1 Image
+			path = "Image";
+			extension = lastUpdateExt ? "last_update" : contObject.contFmt;
+		}
+		
+		path = "/" + path + "/" + filterFileName(contObject.contName) + "/" 
+				+ filterFileName(contObject.contName) + "." + contObject.altContNum + "." + extension;
+
+		return path;
+	}
+	
 }

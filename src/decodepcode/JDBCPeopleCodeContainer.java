@@ -323,11 +323,15 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 		
 		List<PeopleCodeObject> list;
 		List<SQLobject> sqlList;
-		public StoreInList( List<PeopleCodeObject> _list, List<SQLobject> _sqlList) 
+		List<CONTobject> contList;
+
+		public StoreInList(List<PeopleCodeObject> _list, List<SQLobject> _sqlList, List<CONTobject> _contList) 
 		{
 			list = _list;
 			sqlList = _sqlList;
+			contList = _contList;
 		}
+
 		public void process(PeopleCodeObject c) 
 		{
 			list.add(c);
@@ -335,6 +339,11 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 		public void processSQL(SQLobject sql) throws IOException {
 			sqlList.add(sql);
 		}
+		
+		public void processCONT(CONTobject cont) throws IOException {
+			contList.add(cont);
+		}
+		
 		@Override
 		public void aboutToProcess() {
 			// TODO Auto-generated method stub
