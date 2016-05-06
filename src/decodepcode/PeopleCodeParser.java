@@ -88,6 +88,7 @@ public class PeopleCodeParser {
 	
 	abstract class ElementParser
 	{
+		byte b;
 		int format;
 		abstract void parse() throws IOException;
 		abstract byte getStartByte();
@@ -105,7 +106,6 @@ public class PeopleCodeParser {
 	
 	class SimpleElementParser extends ElementParser
 	{
-		byte b; 
 		String t;
 		SimpleElementParser( byte _b, String _t, int _format)
 		{
@@ -158,7 +158,6 @@ public class PeopleCodeParser {
 
 	class PureStringParser extends StringParser
 	{
-		byte b;
 		PureStringParser( byte _b) 
 		{ 
 			b = _b;
@@ -182,7 +181,6 @@ public class PeopleCodeParser {
 	
 	class IdentifierParser extends StringParser
 	{
-		byte b;
 		IdentifierParser( byte _b) 
 		{ 
 			b = _b;
@@ -216,15 +214,24 @@ public class PeopleCodeParser {
 		@Override
 		void parse() throws IOException 
 		{
+			
+			int start_pos = container.pos;
+			while (container.get() != 0)
+			{	
+				container.pos++;
+			}
+			container.pos++;
+			int end_pos = container.pos;
+			
 			w.write(pre);
-			w.write(getString().replace("\"", "\"\""));
+			String s = new String(container.bytes, start_pos, (end_pos - 2) - start_pos , "UnicodeLittleUnmarked");
+			w.write(s.replace("\n","\r\n").replace("\"", "\"\""));
 			w.write(post);
 		}				
 	}
 	
 	class CommentParser extends ElementParser
 	{
-		byte b;
 		public CommentParser( byte _b) {
 			this (_b, //NEWLINE_AFTER | COMMENT_ON_SAME_LINE | SPACE_BEFORE
 					NEWLINE_BEFORE_AND_AFTER
@@ -246,19 +253,11 @@ public class PeopleCodeParser {
 		    int comment_length = (int) container.get() & 0xff;
 		    comment_length = comment_length + ((int) container.get()& 0xff) * 256;
 //		    logger.fine("Comment length = " + comment_length);
-		    StringWriter sw = new StringWriter();
-		    byte b;
-		    for (int i = 0; i < comment_length &&  container.pos < container.bytes.length; i++) 
-		    {
-		    	b = container.get();
-		    	if (b != 0)
-		    	{
-					if (b == (byte) 10)
-						sw.write('\r');  // LF --> CRLF		    		
-		    		sw.write((char) b);
-		    	}
-		    }
-		    w.write(sw.toString());
+		    w.write(
+		    	new String(container.bytes, container.pos, comment_length, "UnicodeLittleUnmarked")
+		    	.replace("\n","\r\n")
+		    );
+		    container.pos += comment_length;
 //		    logger.info("comment='" + sw.toString() + "'");
 		}		
 		@Override
@@ -270,7 +269,6 @@ public class PeopleCodeParser {
 	
 	class ReferenceParser extends ElementParser
 	{
-		byte b;
 		public ReferenceParser( byte _b) {
 			b = _b;
 			format= SPACE_BEFORE_AND_AFTER;
@@ -307,7 +305,6 @@ public class PeopleCodeParser {
 	
 	class NumberParser extends ElementParser
 	{
-		byte b;
 		int nBytes;
 		public NumberParser( byte _b, int _nBytes) 
 		{
@@ -364,110 +361,108 @@ public class PeopleCodeParser {
 		new SimpleElementParser((byte) 6, "="),
 		new SimpleElementParser((byte) 7, ""), // stop parsing?
 		new SimpleElementParser((byte) 8 , ">="),
-		new SimpleElementParser((byte) 9 , ">"),		
+		new SimpleElementParser((byte) 9 , ">"),
 		new PureStringParser((byte) 10), /* Function | Method | External Datatype | Class name  0x0A*/
 		new SimpleElementParser((byte) 11, "(", NO_SPACE_AFTER),
-		new SimpleElementParser((byte) 12 , "<="),
-		new SimpleElementParser((byte) 13 , "<"),
-		new SimpleElementParser((byte) 14 , "-"),		
-		new SimpleElementParser((byte) 15 , "*"),
-		new SimpleElementParser((byte) 16 , "<>"),
+		new SimpleElementParser((byte) 12, "<="),
+		new SimpleElementParser((byte) 13, "<"),
+		new SimpleElementParser((byte) 14, "-"),
+		new SimpleElementParser((byte) 15, "*"),
+		new SimpleElementParser((byte) 16, "<>"),
 		new NumberParser((byte) 17, 14),
-		new SimpleElementParser((byte) 26 , "End-If", ENDIF_STYLE),		
 		new PureStringParser((byte) 18), /* System variable name */
-		new SimpleElementParser((byte) 19 , "+"),
-		new SimpleElementParser((byte) 20, ")", NO_SPACE_BEFORE),   //0x14
+		new SimpleElementParser((byte) 19, "+"),
+		new SimpleElementParser((byte) 20, ")", NO_SPACE_BEFORE), //0x14
 		new SimpleElementParser((byte) 21, ";", SEMICOLON | NEWLINE_AFTER | NO_SPACE_BEFORE), //0x15
-		new EmbeddedStringParser((byte)22, "\"", "\""),
-		new SimpleElementParser((byte) 24 , "And", AND_STYLE),
-		new SimpleElementParser((byte) 25 , "Else", ELSE_STYLE),
-		new SimpleElementParser((byte) 27 , "Error"),
-		new SimpleElementParser((byte) 28 , "If", IF_STYLE),				// 0x1c
+		new EmbeddedStringParser((byte) 22, "\"", "\""),
+		new SimpleElementParser((byte) 24, "And", AND_STYLE),
+		new SimpleElementParser((byte) 25, "Else", ELSE_STYLE),
+		new SimpleElementParser((byte) 26, "End-If", ENDIF_STYLE),
+		new SimpleElementParser((byte) 27, "Error"),
+		new SimpleElementParser((byte) 28, "If", IF_STYLE), // 0x1c
 		new SimpleElementParser((byte) 29, "Not"),
-		new SimpleElementParser((byte) 30 , "Or", AND_STYLE),
-		new SimpleElementParser((byte) 31 , "Then", THEN_STYLE),		
-		new SimpleElementParser((byte) 32 , "Warning"),
+		new SimpleElementParser((byte) 30, "Or", AND_STYLE),
+		new SimpleElementParser((byte) 31, "Then", THEN_STYLE),
+		new SimpleElementParser((byte) 32, "Warning"),
 		new ReferenceParser((byte) 33),
-		new SimpleElementParser((byte) 35 , "|"),		
-		new CommentParser((byte) 36),
-		new SimpleElementParser((byte) 37 , "While", FOR_STYLE),
-		new SimpleElementParser((byte) 38 , "End-While", ENDIF_STYLE),
-		new SimpleElementParser((byte) 39 , "Repeat", FOR_STYLE),
-		new SimpleElementParser((byte) 40 , "Until", IF_STYLE),
-		new SimpleElementParser((byte) 41 , "For", FOR_STYLE),
-		new SimpleElementParser((byte) 42 , "To"),
-		new SimpleElementParser((byte) 43 , "Step"),
-		new SimpleElementParser((byte) 44 , "End-For", ENDIF_STYLE),
-		new SimpleElementParser((byte) 45, "", //NEWLINE_AFTER), 
-				NEWLINE_ONCE), 					//0x2d
+		new SimpleElementParser((byte) 35, "|"),
+		new CommentParser((byte) 36),		/* slash asterisk comment  or  REM comment */
+		new SimpleElementParser((byte) 37, "While", FOR_STYLE),
+		new SimpleElementParser((byte) 38, "End-While", ENDIF_STYLE),
+		new SimpleElementParser((byte) 39, "Repeat", FOR_STYLE),
+		new SimpleElementParser((byte) 40, "Until", IF_STYLE),
+		new SimpleElementParser((byte) 41, "For", FOR_STYLE),
+		new SimpleElementParser((byte) 42, "To"),
+		new SimpleElementParser((byte) 43, "Step"),
+		new SimpleElementParser((byte) 44, "End-For", ENDIF_STYLE),
+		new SimpleElementParser((byte) 45, "", NEWLINE_ONCE), // NEWLINE_AFTER 0x2d
 		new SimpleElementParser((byte) 46, "Break", SPACE_BEFORE),
-		new SimpleElementParser((byte) 47, "True",  SPACE_BEFORE_AND_AFTER2),
+		new SimpleElementParser((byte) 47, "True", SPACE_BEFORE_AND_AFTER2),
 		new SimpleElementParser((byte) 48, "False", SPACE_BEFORE_AND_AFTER2),
-		new SimpleElementParser((byte) 49 , "Declare", NEWLINE_BEFORE_SPACE_AFTER | IN_DECLARE),
-		new SimpleElementParser((byte) 50 , "Function", FUNCTION_STYLE),
+		new SimpleElementParser((byte) 49, "Declare", NEWLINE_BEFORE_SPACE_AFTER | IN_DECLARE),
+		new SimpleElementParser((byte) 50, "Function", FUNCTION_STYLE),
 		new SimpleElementParser((byte) 51, "Library"),
 		new SimpleElementParser((byte) 53, "As"),
 		new SimpleElementParser((byte) 54, "Value"),
 		new SimpleElementParser((byte) 55, "End-Function", END_FUNCTION_STYLE),
-		new SimpleElementParser((byte) 56 , "Return"),
-		new SimpleElementParser((byte) 57 , "Returns"),
-		new SimpleElementParser((byte) 58 , "PeopleCode"),
-		new SimpleElementParser((byte) 59,  "Ref"),
-		new SimpleElementParser((byte) 60 , "Evaluate", INCREASE_INDENT | SPACE_AFTER),
-		new SimpleElementParser((byte) 61 , "When", DECREASE_INDENT | NEWLINE_BEFORE_SPACE_AFTER | INCREASE_INDENT),
-		new SimpleElementParser((byte) 62 , "When-Other", DECREASE_INDENT | NEWLINE_BEFORE | NEWLINE_AFTER | INCREASE_INDENT),
-		new SimpleElementParser((byte) 63 , "End-Evaluate", NEWLINE_BEFORE |DECREASE_INDENT |SPACE_BEFORE),		
+		new SimpleElementParser((byte) 56, "Return"),
+		new SimpleElementParser((byte) 57, "Returns"),
+		new SimpleElementParser((byte) 58, "PeopleCode"),
+		new SimpleElementParser((byte) 59, "Ref"),
+		new SimpleElementParser((byte) 60, "Evaluate", INCREASE_INDENT | SPACE_AFTER),
+		new SimpleElementParser((byte) 61, "When", DECREASE_INDENT | NEWLINE_BEFORE_SPACE_AFTER | INCREASE_INDENT),
+		new SimpleElementParser((byte) 62, "When-Other", DECREASE_INDENT | NEWLINE_BEFORE | NEWLINE_AFTER | INCREASE_INDENT),
+		new SimpleElementParser((byte) 63, "End-Evaluate", NEWLINE_BEFORE |DECREASE_INDENT |SPACE_BEFORE),
 		new PureStringParser((byte) 64), /* PeopleCode Variable Type Name */
-		new SimpleElementParser((byte) 65, "", SPACE_AFTER),  // 'And'-style?
-		new SimpleElementParser((byte) 66 , "", PUNCTUATION), //SPACE_BEFORE | NO_SPACE_AFTER),
-		new SimpleElementParser((byte) 67 , "Exit"),
-		new SimpleElementParser((byte) 68 , "Local", NEWLINE_BEFORE_SPACE_AFTER),		
-		new SimpleElementParser((byte) 69 , "Global", NEWLINE_BEFORE_SPACE_AFTER),
-		new SimpleElementParser((byte) 70 , "**", PUNCTUATION),
-		new SimpleElementParser((byte) 71 , "@", SPACE_BEFORE | NO_SPACE_AFTER), //, PUNCTUATION),
+		new SimpleElementParser((byte) 65, "", SPACE_AFTER), // 'And'-style?
+		new SimpleElementParser((byte) 66, "", PUNCTUATION), //SPACE_BEFORE | NO_SPACE_AFTER),
+		new SimpleElementParser((byte) 67, "Exit"),
+		new SimpleElementParser((byte) 68, "Local", NEWLINE_BEFORE_SPACE_AFTER),		
+		new SimpleElementParser((byte) 69, "Global", NEWLINE_BEFORE_SPACE_AFTER),
+		new SimpleElementParser((byte) 70, "**", PUNCTUATION),
+		new SimpleElementParser((byte) 71, "@", SPACE_BEFORE | NO_SPACE_AFTER), //, PUNCTUATION),
 		new ReferenceParser((byte) 72),
-		new SimpleElementParser((byte) 73 , "set"),
+		new SimpleElementParser((byte) 73, "set", INCREASE_INDENT_ONCE | SPACE_BEFORE),
 		new ReferenceParser((byte) 74),
-		new SimpleElementParser((byte) 75 , "Null"),
-		new SimpleElementParser((byte) 76 , "[", SPACE_BEFORE | NO_SPACE_AFTER),
-		new SimpleElementParser((byte) 77 , "]", NO_SPACE_BEFORE | SPACE_AFTER),		
+		new SimpleElementParser((byte) 75, "Null"),
+		new SimpleElementParser((byte) 76, "[", SPACE_BEFORE | NO_SPACE_AFTER),
+		new SimpleElementParser((byte) 77, "]", NO_SPACE_BEFORE | SPACE_AFTER),
 		new CommentParser((byte) 78, NEWLINE_AFTER | COMMENT_ON_SAME_LINE | SPACE_BEFORE),
 		new SimpleElementParser((byte) 79, "", NEWLINE_AFTER),
 		new NumberParser((byte) 80, 18),
-		new SimpleElementParser((byte) 81 , "PanelGroup"),
-		new SimpleElementParser((byte) 82 , ""),
-		new SimpleElementParser((byte) 83 , "Doc", NEWLINE_BEFORE_SPACE_AFTER),
+		new SimpleElementParser((byte) 81, "PanelGroup"),
+		new SimpleElementParser((byte) 82, ""),
+		new SimpleElementParser((byte) 83, "Doc", NEWLINE_BEFORE_SPACE_AFTER),
 		new SimpleElementParser((byte) 84, "Component", NEWLINE_BEFORE_SPACE_AFTER),
-		new CommentParser((byte) 85, NEWLINE_AFTER | COMMENT_ON_SAME_LINE | SPACE_BEFORE),
+		new CommentParser((byte) 85/*, NEWLINE_AFTER | COMMENT_ON_SAME_LINE | SPACE_BEFORE*/), /* Less-than asterisk comment */
 		new SimpleElementParser((byte) 86, "Constant", NEWLINE_BEFORE_SPACE_AFTER),
 		new SimpleElementParser((byte) 87, ":", PUNCTUATION),
 		new SimpleElementParser((byte) 88, "import"),
-		new SimpleElementParser((byte) 87, ":", PUNCTUATION),
 		new SimpleElementParser((byte) 89, "*"),
-		new SimpleElementParser((byte) 90 , "class", FUNCTION_STYLE),
-		new SimpleElementParser((byte) 91 , "end-class", END_FUNCTION_STYLE),
+		new SimpleElementParser((byte) 90, "class", FUNCTION_STYLE),
+		new SimpleElementParser((byte) 91, "end-class", END_FUNCTION_STYLE),
 		new SimpleElementParser((byte) 92, "extends"),
-		new SimpleElementParser((byte) 93 , "out"),
+		new SimpleElementParser((byte) 93, "out"),
 		new SimpleElementParser((byte) 94, "property", NEWLINE_BEFORE_SPACE_AFTER),
-		new SimpleElementParser((byte) 95 , "get"),
-		new SimpleElementParser((byte) 96 , "readonly"),		
-		new SimpleElementParser((byte) 97 , "private", ELSE_STYLE),		
-		new SimpleElementParser((byte) 98 , "instance"),		
+		new SimpleElementParser((byte) 95, "get", INCREASE_INDENT_ONCE | SPACE_BEFORE),
+		new SimpleElementParser((byte) 96, "readonly"),
+		new SimpleElementParser((byte) 97, "private", ELSE_STYLE),
+		new SimpleElementParser((byte) 98, "instance"),
 		new SimpleElementParser((byte) 99, "method", NEWLINE_BEFORE | SPACE_AFTER | INCREASE_INDENT_ONCE),
 		new SimpleElementParser((byte) 100, "end-method", END_FUNCTION_STYLE),
-		new SimpleElementParser((byte) 101 , "try", SPACE_BEFORE_NEWLINE_AFTER),		
-		new SimpleElementParser((byte) 102 , "catch"),		
-		new SimpleElementParser((byte) 103 , "end-try"),		
-		new SimpleElementParser((byte) 104 , "throw"),
+		new SimpleElementParser((byte) 101, "try", SPACE_BEFORE_NEWLINE_AFTER),
+		new SimpleElementParser((byte) 102, "catch"),
+		new SimpleElementParser((byte) 103, "end-try"),
+		new SimpleElementParser((byte) 104, "throw"),
 		new SimpleElementParser((byte) 105, "create"),
-		new SimpleElementParser((byte) 106, "end-get"),
-		new SimpleElementParser((byte) 107, "end-set"),
+		new SimpleElementParser((byte) 106, "end-get", RESET_INDENT_BEFORE | NEWLINE_BEFORE),
+		new SimpleElementParser((byte) 107, "end-set", RESET_INDENT_BEFORE | NEWLINE_BEFORE),
 		new SimpleElementParser((byte) 108, ""),
-		new EmbeddedStringParser((byte)109, "/+ ", " +/", NEWLINE_BEFORE_AND_AFTER),
+		new EmbeddedStringParser((byte) 109, "/+ ", " +/", NEWLINE_BEFORE_AND_AFTER),
 		new SimpleElementParser((byte) 110, "Continue", SPACE_BEFORE_NEWLINE_AFTER),
-		new SimpleElementParser((byte) 111 , "abstract"),
-		new SimpleElementParser((byte) 112, "interface"),		
-		new SimpleElementParser((byte) 113, "end-interface"),		
+		new SimpleElementParser((byte) 111, "abstract"),
+		new SimpleElementParser((byte) 112, "interface"),
+		new SimpleElementParser((byte) 113, "end-interface"),
 		new SimpleElementParser((byte) 114, "implements"),
 		new SimpleElementParser((byte) 115, "protected", ELSE_STYLE)
 	};
@@ -493,7 +488,8 @@ public class PeopleCodeParser {
 			and_indicator = false,
 			did_newline = false,
 			in_declare = false,
-			wroteSpace = false;
+			wroteSpace = false,
+			at_ifwhileuntil_condition = false;
 		
 		while (container.pos < container.bytes.length && !endDetected)
 		{
@@ -522,6 +518,13 @@ public class PeopleCodeParser {
 						&& !((lastParser != null && (lastParser.format & NEWLINE_AFTER) > 0) || (lastParser.format == SEMICOLON))
 									// ||(!((p.format & NEWLINE_BEFORE) > 0 
 									);
+				if (code == (byte) 28 || code == (byte) 37 || code == (byte) 40){
+					at_ifwhileuntil_condition = true;
+				} else if (code == (byte) 31 || code == (byte) 45 || code == (byte) 21){
+					at_ifwhileuntil_condition = false;
+				}
+				
+				
 				if (debug)
 					w.write("0x" + Integer.toString( container.pos, 16) + " (" + code + ")'");
 				if (lastParser != null 
@@ -541,9 +544,11 @@ public class PeopleCodeParser {
 					&& !in_declare 
 					&&	(  ((lastParser != null && ((lastParser.format & NEWLINE_AFTER) > 0) 
 							|| (lastParser.format == SEMICOLON)) && (p.format & COMMENT_ON_SAME_LINE) == 0)
-						|| ((p.format & NEWLINE_BEFORE) > 0) //&& !did_newline
+						|| (((p.format & NEWLINE_BEFORE) > 0) //&& !did_newline
+							&& (lastParser.format != NEWLINE_ONCE)
+							)
 						)
-						|| ( (p.format & NEWLINE_ONCE) > 0 && !did_newline && container.readAhead() != (byte) 21)
+						|| ((p.format & NEWLINE_ONCE) > 0 && !did_newline && container.readAhead() != (byte) 21)
 						)
 				{
 					w.write(eol);
@@ -554,28 +559,39 @@ public class PeopleCodeParser {
 				}
 				else
 				{
-					if (!startOfLine 
-						&& !wroteSpace
-						&& (p.format != PUNCTUATION) 
-						&& (p.format != SEMICOLON)
-						&& (( (lastParser != null && (lastParser.format & SPACE_AFTER) > 0))
-							|| (p.format & SPACE_BEFORE) > 0) 
-						&& ( lastParser == null
-								|| ( 
-								      (lastParser.format != PUNCTUATION  && (lastParser.format & NO_SPACE_AFTER) == 0)
-								      || ((p.format & SPACE_BEFORE2) > 0)) 
-								)					
-						&&  (p.format & NO_SPACE_BEFORE) == 0 )
+					if (
+							(
+								!startOfLine 
+								&& !wroteSpace
+								&& (p.format != PUNCTUATION) 
+								&& (p.format != SEMICOLON)
+								&& (( (lastParser != null && (lastParser.format & SPACE_AFTER) > 0))
+									|| (p.format & SPACE_BEFORE) > 0) 
+								&& ( lastParser == null
+										|| ( 
+										      (lastParser.format != PUNCTUATION  && (lastParser.format & NO_SPACE_AFTER) == 0)
+										      || ((p.format & SPACE_BEFORE2) > 0)) 
+										)					
+								&& (p.format & NO_SPACE_BEFORE) == 0 
+							)
+						|| (code == (byte) 75 && lastParser.b == (byte) 11)
+						)
 					{
-						w.write(' ');
-						wroteSpace = true;
+						if (!(code == (byte) 76 && lastParser.b == (byte) 20)){
+							w.write(' ');
+							wroteSpace = true;
+						}
 					}
 				}
-				if (startOfLine && p.writesNonBlank())
-					for (int i = 0; i < nIndent + (and_indicator? 2 : 0); i++)
+				if (startOfLine && (p.writesNonBlank() || code == (byte) 79)){
+					for (int i = 0; i < nIndent + (and_indicator ? (at_ifwhileuntil_condition ? 2 : 1) : 0); i++)
 					{
 						w.write("   ");
 					}
+					if (at_ifwhileuntil_condition && !and_indicator && code != (byte) 28 && code != (byte) 37 && code != (byte) 40){
+						w.write("   ");
+					}
+				}
 				firstLine= false;
 				int p0 =container.pos;
 				p.parse();
@@ -583,7 +599,10 @@ public class PeopleCodeParser {
 				in_declare = in_declare || (p.format & IN_DECLARE) > 0; 
 				startOfLine = startOfLine && !p.writesNonBlank();
 				did_newline = did_newline && container.pos == p0;
-				and_indicator = (p.format & AND_INDICATOR) > 0 || (and_indicator && (p.format & COMMENT_ON_SAME_LINE) != 0);
+				and_indicator = (p.format & AND_INDICATOR) > 0 
+								|| (and_indicator && (p.format & COMMENT_ON_SAME_LINE) != 0 
+								|| (and_indicator && (code == (byte) 36))
+								);
 				lastParser = p;
 				if ((p.format & RESET_INDENT_AFTER) > 0 )
 					nIndent = 0;
