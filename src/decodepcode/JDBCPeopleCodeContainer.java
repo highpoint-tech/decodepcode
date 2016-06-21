@@ -10,7 +10,6 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /*
@@ -169,7 +168,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 			Statement st = dbconn.createStatement();
 			
 			String q ="select LASTUPDDTTM, LASTUPDOPRID from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " and PROGSEQ = 0";
-			logger.info(q);
+			logger.fine(q);
 			ResultSet rs0 = st.executeQuery(q);
 			foundPeopleCode = rs0.next();
 			if (!foundPeopleCode)
@@ -184,7 +183,7 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 			q = "select PCTEXT from " + dbowner + "PSPCMTXT pt where" 
 					+ keys.getWhere(" pt.") 
 					 + " order by pt.PROGSEQ";
-			logger.info(q);
+			logger.fine(q);
 			ResultSet rs2 = st.executeQuery(q);
 			StringBuffer sb = new StringBuffer();
 			while (rs2.next())
@@ -211,8 +210,10 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 		keys = new KeySet(rs, false);
 		Statement st = dbconn.createStatement();
 		
-		String q ="select LASTUPDDTTM, LASTUPDOPRID, PROGTXT from " + dbowner + "PSPCMPROG pc where " + keys.getWhere() + " order by PROGSEQ";
-		logger.info(q);
+		String sqlWhere = keys.getWhere();
+		
+		String q ="select LASTUPDDTTM, LASTUPDOPRID, PROGTXT from " + dbowner + "PSPCMPROG pc where " + sqlWhere + " order by PROGSEQ";
+		logger.fine(q);
 		ResultSet rs2 = st.executeQuery(q);
 		while (rs2.next())
 		{	
@@ -241,13 +242,13 @@ public class JDBCPeopleCodeContainer extends PeopleCodeContainer implements Peop
 		foundPeopleCode = true;
 		logger.fine("PeopleCode byte length = " + bytes.length + " (0x" + Integer.toString(bytes.length, 16) + ")" );		
 		
-		q ="select RECNAME, REFNAME, NAMENUM from " + dbowner + "PSPCMNAME where " + keys.getWhere();
-		logger.info(q);
+		q ="select RECNAME, REFNAME, NAMENUM from " + dbowner + "PSPCMNAME where " + sqlWhere;
+		logger.fine(q);
 		rs2 = st.executeQuery(q);
 		while (rs2.next())
 		{
 			if (references.get(rs2.getInt("NAMENUM")) != null)
-				logger.log(Level.WARNING, "Duplicate reference: " + rs2.getInt("NAMENUM") + " in " + keys.getWhere());
+				logger.warning("Duplicate reference: " + rs2.getInt("NAMENUM") + " in " + sqlWhere);
 			String recname = rs2.getString("RECNAME").trim(),
 			special = keyWords.get(recname);
 			if (special != null)

@@ -63,6 +63,7 @@ public class Controller {
 	static long countPPC=0, countSQL=0, countCONT=0;
 	static boolean getContentHtml;
 	static boolean getContentImage;
+	static boolean saveCodeInfo;
 	static String oprid = null;
 	static boolean onlyCustom = false;
 	final static File lastTimeFile = new File("last-time.txt");
@@ -76,6 +77,7 @@ public class Controller {
 			props= readProperties();
 			getContentHtml = "true".equalsIgnoreCase(props.getProperty("getContentHtml"));
 			getContentImage = "true".equalsIgnoreCase(props.getProperty("getContentImage"));
+			saveCodeInfo = "true".equalsIgnoreCase(props.getProperty("saveCodeInfo"));
 		} catch (IOException ex)
 		{
 			logger.severe("Unable to read properties : " + ex);
@@ -158,10 +160,13 @@ public class Controller {
 		Set<String> processedKeys = new HashSet<String>();
 		for (ContainerProcessor processor1: processors)
 		{
-			logger.info("Now determining what PeopleCode to process by querying environment " + processor1.getTag());
+			logger.info("\n==================== Decode PeopleCode ==================== ");
+			logger.info("Decoding PeopleCode to process by querying environment: " + processor1.getTag());
 			String q = "select "+ KeySet.getList() + ", LASTUPDOPRID, LASTUPDDTTM from " 
 				+ processor1.getDBowner() + "PSPCMPROG pc " + whereClause + " and pc.PROGSEQ=0";
-			logger.info(q);
+			logger.fine(q);
+			logger.info("\n");
+
 			PreparedStatement st0 =  processor1.getJDBCconnection().prepareStatement(q);
 			if (callback != null)
 				callback.setParameters(st0);
@@ -297,11 +302,13 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 
 	public static void processSQLforProject(String projectName, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
+		logger.info("\n==================== Decode SQL ==================== ");
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td, " 
 				+ dbowner + "PSPROJECTITEM pi  where d.SQLID=td.SQLID and d.SQLID=pi.OBJECTVALUE1 and pi.OBJECTID1=65 and pi.OBJECTVALUE2=td.SQLTYPE and pi.PROJECTNAME='" + projectName + "'";  
 		Statement st0 =  dbconn.createStatement();
-		logger.info(q);
+		logger.fine(q);
+		logger.info("\n");
 		ResultSet rs = st0.executeQuery(q);		
 		processSQLs(rs, processors);
 		st0.close();
@@ -313,6 +320,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		// query all environments with the query on LASTUPDDTTM" 
 		for (ContainerProcessor processor: processors)
 		{
+			logger.info("\n==================== Decode SQL ==================== ");
 			String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 				+ processor.getDBowner() + "PSSQLDEFN d, " + processor.getDBowner()+ "PSSQLTEXTDEFN td " 
 					+ " where d.SQLID=td.SQLID and d.LASTUPDDTTM >= ?";
@@ -323,7 +331,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 
 			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q);
 			st0.setTimestamp(1, date);
-			logger.info(q);
+			logger.fine(q);
+			logger.info("\n");
 			ResultSet rs = st0.executeQuery();		
 			processSQLs(rs, processors);
 			st0.close();
@@ -339,13 +348,15 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	
 	public static void processCustomSQLs(List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
+		logger.info("\n==================== Decode SQL ==================== ");
 		String q = "select d.SQLID, d.LASTUPDOPRID, d.LASTUPDDTTM, td.SQLTYPE, td.MARKET, td.DBTYPE, td.SQLTEXT from "
 			+ dbowner + "PSSQLDEFN d, " + dbowner + "PSSQLTEXTDEFN td " 
 				+ " where d.SQLID=td.SQLID and d.LASTUPDOPRID <> 'PPLSOFT'";  
 		if (oprid != null)
 			q += " and d.LASTUPDOPRID = '" + oprid + "'";
 		PreparedStatement st0 =  dbconn.prepareStatement(q);
-		logger.info(q);
+		logger.fine(q);
+		logger.info("\n");
 		ResultSet rs = st0.executeQuery();		
 		processSQLs(rs, processors);
 		st0.close();
@@ -391,11 +402,31 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		
 	}
+	
+	private static boolean canAccess_PSCONTDEFN_CONTDATA(List<ContainerProcessor> processors) throws SQLException
+	{
+		boolean canAccess_PSCONTDEFN_CONTDATA = false;
+		try {
+			ContainerProcessor pc1 = processors.listIterator().next();
+			st = pc1.getJDBCconnection().createStatement();
+			st.executeQuery("select CONTDATA from "+ pc1.getDBowner() + "PSCONTDEFN where 1=0");
+			canAccess_PSCONTDEFN_CONTDATA = true;
+			logger.info("Can read PSCONTDEFN.CONTDATA");
+		} catch (SQLException e) {logger.info("Can NOT access PSCONTDEFN.CONTDATA - "+ e.getMessage()); }
+		finally { if (st != null) st.close(); }
+		return canAccess_PSCONTDEFN_CONTDATA;
+	}
 
 	public static void processCONTforProject(String projectName, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
 		
 		if (!(getContentHtml || getContentImage)){
+			return;
+		}
+		
+		logger.info("\n==================== Decode content ==================== ");
+		
+		if (!canAccess_PSCONTDEFN_CONTDATA(processors)){
 			return;
 		}
 		
@@ -413,7 +444,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		
 		Statement st0 =  dbconn.createStatement();
-		logger.info(q);
+		logger.fine(q);
+		logger.info("\n");
 		ResultSet rs = st0.executeQuery(q);		
 		processCONTs(rs, processors);
 		st0.close();
@@ -433,6 +465,12 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	public static void processCONTsinceDate(java.sql.Timestamp date, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
 		if (!(getContentHtml || getContentImage)){
+			return;
+		}
+		
+		logger.info("\n==================== Decode content ==================== ");
+		
+		if (!canAccess_PSCONTDEFN_CONTDATA(processors)){
 			return;
 		}
 		
@@ -457,7 +495,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			
 			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q);
 			st0.setTimestamp(1, date);
-			logger.info(q);
+			logger.fine(q);
+			logger.info("\n");
 			ResultSet rs = st0.executeQuery();
 			processCONTs(rs, processors);
 			st0.close();
@@ -480,6 +519,12 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			return;
 		}
 		
+		logger.info("\n==================== Decode content ==================== ");
+		
+		if (!canAccess_PSCONTDEFN_CONTDATA(processors)){
+			return;
+		}
+		
 		String q = "select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.LASTUPDOPRID, c.LASTUPDDTTM, c.CONTDATA from "
 				+ dbowner + "PSCONTDEFN c where c.LASTUPDOPRID <> 'PPLSOFT'";
 		if (oprid != null)
@@ -494,7 +539,8 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		
 		PreparedStatement st0 =  dbconn.prepareStatement(q);
-		logger.info(q);
+		logger.fine(q);
+		logger.info("\n");
 		ResultSet rs = st0.executeQuery();		
 		processCONTs(rs, processors);
 		st0.close();
@@ -618,39 +664,41 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		public void processSQL(SQLobject sql) throws IOException {
 			File sqlFile = mapper.getFileForSQL(sql, "sql");
-			logger.fine("Creating " + sqlFile);
 			FileWriter fw = new FileWriter(sqlFile);
 //			dbedit.internal.parser.Formatter formatter = new Formatter();
 //			sql = formatter.format(sql, 0, null, System.getProperty("line.separator"));
 			fw.write(sql.sql);
 			fw.close();
-			File infoFile = mapper.getFileForSQL(sql, "last_update");
-			PrintWriter pw = new PrintWriter(infoFile);
-			pw.println(sql.lastChangedBy);
-			pw.println(ProjectReader.df2.format(sql.lastChanged));
-			pw.close();
+			if (saveCodeInfo && (sql.lastChangedBy != null && sql.lastChanged != null))
+			{
+				File infoFile = mapper.getFileForSQL(sql, "last_update");
+				PrintWriter pw = new PrintWriter(infoFile);
+				pw.println(sql.lastChangedBy);
+				pw.println(ProjectReader.df2.format(sql.lastChanged));
+				pw.close();
+			}
+			logger.info("SQL: " + sqlFile);
 		}
 		
 		@Override
 		public void processCONT(CONTobject cont) throws IOException {
 			File contFile = mapper.getFileForCONT(cont, false);
-			logger.info("Creating " + contFile);
 			contFile.createNewFile();
 			FileOutputStream contFileOs = new FileOutputStream(contFile);
 			contFileOs.write(cont.getContDataBytes());
 			contFileOs.flush();
 			contFileOs.close();
-			/*FileWriter fw = new FileWriter(contFile);
-			fw.write(cont.getContData());
-			fw.close();*/
 			
-			if (cont.getLastChangedBy() != null && cont.getLastChangedDtTm() != null) 	{
+			if (saveCodeInfo && (cont.getLastChangedBy() != null && cont.getLastChangedDtTm() != null))
+			{
 				File infoFile = mapper.getFileForCONT(cont, true);
 				PrintWriter pw = new PrintWriter(infoFile);
 				pw.println(cont.getLastChangedBy());
 				pw.println(ProjectReader.df2.format(cont.getLastChangedDtTm()));
 				pw.close();
 			}
+			
+			logger.info("Content: " + contFile);
 		}
 		
 		public String getDBowner() {
@@ -714,7 +762,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		public void process(PeopleCodeObject p) throws IOException 
 		{
 			File f = mapper.getFile(p, extension);
-			logger.fine("Creating " + f);
+			logger.info("PeopleCode: " + f);
 			FileWriter w = new FileWriter(f);
 			try {
 				if (p.hasPlainPeopleCode()) // why decode the bytecode if we have the plain text...
@@ -722,14 +770,18 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				else
 					parser.parse(((PeopleCodeContainer) p), w);
 				w.close();
-				Date lastUpdt = p.getLastChangedDtTm();
-				if (lastUpdt != null)
+				
+				if (saveCodeInfo)
 				{
-					File infoFile = mapper.getFile(p, "last_update");
-					PrintWriter pw = new PrintWriter(infoFile);
-					pw.println(p.getLastChangedBy());
-					pw.println(ProjectReader.df2.format(lastUpdt));
-				pw.close();			
+					Date lastUpdt = p.getLastChangedDtTm();
+					if (lastUpdt != null)
+					{
+						File infoFile = mapper.getFile(p, "last_update");
+						PrintWriter pw = new PrintWriter(infoFile);
+						pw.println(p.getLastChangedBy());
+						pw.println(ProjectReader.df2.format(lastUpdt));
+						pw.close();			
+					}
 				}
 			} 
 			catch (IOException e) { throw e; }
@@ -747,11 +799,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		public void processSQL(SQLobject sql) throws IOException 
 		{
 			File sqlFile = mapper.getFileForSQL(sql, "sql");
-			logger.info("Creating " + sqlFile);
 			FileWriter fw = new FileWriter(sqlFile);
 			fw.write(sql.sql);
 			fw.close();
-			if (sql.getLastChangedBy() != null && sql.lastChanged != null)
+			if (saveCodeInfo && (sql.getLastChangedBy() != null && sql.lastChanged != null))
 			{
 				File infoFile = mapper.getFileForSQL(sql, "last_update");
 				PrintWriter pw = new PrintWriter(infoFile);
@@ -759,23 +810,21 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				pw.println(ProjectReader.df2.format(sql.lastChanged));
 				pw.close();
 			}
+			logger.info("SQL: " + sqlFile);
 		}
 		
 		@Override
 		public void processCONT(CONTobject cont) throws IOException {
 			
 			File contFile = mapper.getFileForCONT(cont, false);
-			logger.info("Creating " + contFile);
 			contFile.createNewFile();
 			FileOutputStream contFileOs = new FileOutputStream(contFile);
 			contFileOs.write(cont.getContDataBytes());
 			contFileOs.flush();
 			contFileOs.close();
-			/*FileWriter fw = new FileWriter(contFile);
-			fw.write(cont.getContData());
-			fw.close();*/
-
-			if (cont.getLastChangedBy() != null && cont.getLastChangedDtTm() != null) 	{
+			
+			if (saveCodeInfo && (cont.getLastChangedBy() != null && cont.getLastChangedDtTm() != null))
+			{
 				File infoFile = mapper.getFileForCONT(cont, true);
 				PrintWriter pw = new PrintWriter(infoFile);
 				pw.println(cont.getLastChangedBy());
@@ -783,6 +832,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 				pw.close();
 			}
 			
+			logger.info("Content: " + contFile);
 		}
 		
 		@Override
