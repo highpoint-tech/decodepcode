@@ -7,6 +7,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
@@ -55,24 +56,24 @@ public class ExtractPeopleCodeFromCompareReport
 		    htmlEntities = new HashMap<String,String>();
 		    htmlEntities.put("&lt;","<")    ; htmlEntities.put("&gt;",">");
 		    htmlEntities.put("&amp;","&")   ; htmlEntities.put("&quot;","\"");
-		    htmlEntities.put("&agrave;","à"); htmlEntities.put("&Agrave;","À");
-		    htmlEntities.put("&acirc;","â") ; htmlEntities.put("&auml;","ä");
-		    htmlEntities.put("&Auml;","Ä")  ; htmlEntities.put("&Acirc;","Â");
-		    htmlEntities.put("&aring;","å") ; htmlEntities.put("&Aring;","Å");
-		    htmlEntities.put("&aelig;","æ") ; htmlEntities.put("&AElig;","Æ" );
-		    htmlEntities.put("&ccedil;","ç"); htmlEntities.put("&Ccedil;","Ç");
-		    htmlEntities.put("&eacute;","é"); htmlEntities.put("&Eacute;","É" );
-		    htmlEntities.put("&egrave;","è"); htmlEntities.put("&Egrave;","È");
-		    htmlEntities.put("&ecirc;","ê") ; htmlEntities.put("&Ecirc;","Ê");
-		    htmlEntities.put("&euml;","ë")  ; htmlEntities.put("&Euml;","Ë");
-		    htmlEntities.put("&iuml;","ï")  ; htmlEntities.put("&Iuml;","Ï");
-		    htmlEntities.put("&ocirc;","ô") ; htmlEntities.put("&Ocirc;","Ô");
-		    htmlEntities.put("&ouml;","ö")  ; htmlEntities.put("&Ouml;","Ö");
-		    htmlEntities.put("&oslash;","ø") ; htmlEntities.put("&Oslash;","Ø");
-		    htmlEntities.put("&szlig;","ß") ; htmlEntities.put("&ugrave;","ù");
-		    htmlEntities.put("&Ugrave;","Ù"); htmlEntities.put("&ucirc;","û");
-		    htmlEntities.put("&Ucirc;","Û") ; htmlEntities.put("&uuml;","ü");
-		    htmlEntities.put("&Uuml;","Ü")  ; htmlEntities.put("&nbsp;"," ");
+		    htmlEntities.put("&agrave;","ï¿½"); htmlEntities.put("&Agrave;","ï¿½");
+		    htmlEntities.put("&acirc;","ï¿½") ; htmlEntities.put("&auml;","ï¿½");
+		    htmlEntities.put("&Auml;","ï¿½")  ; htmlEntities.put("&Acirc;","ï¿½");
+		    htmlEntities.put("&aring;","ï¿½") ; htmlEntities.put("&Aring;","ï¿½");
+		    htmlEntities.put("&aelig;","ï¿½") ; htmlEntities.put("&AElig;","ï¿½" );
+		    htmlEntities.put("&ccedil;","ï¿½"); htmlEntities.put("&Ccedil;","ï¿½");
+		    htmlEntities.put("&eacute;","ï¿½"); htmlEntities.put("&Eacute;","ï¿½" );
+		    htmlEntities.put("&egrave;","ï¿½"); htmlEntities.put("&Egrave;","ï¿½");
+		    htmlEntities.put("&ecirc;","ï¿½") ; htmlEntities.put("&Ecirc;","ï¿½");
+		    htmlEntities.put("&euml;","ï¿½")  ; htmlEntities.put("&Euml;","ï¿½");
+		    htmlEntities.put("&iuml;","ï¿½")  ; htmlEntities.put("&Iuml;","ï¿½");
+		    htmlEntities.put("&ocirc;","ï¿½") ; htmlEntities.put("&Ocirc;","ï¿½");
+		    htmlEntities.put("&ouml;","ï¿½")  ; htmlEntities.put("&Ouml;","ï¿½");
+		    htmlEntities.put("&oslash;","ï¿½") ; htmlEntities.put("&Oslash;","ï¿½");
+		    htmlEntities.put("&szlig;","ï¿½") ; htmlEntities.put("&ugrave;","ï¿½");
+		    htmlEntities.put("&Ugrave;","ï¿½"); htmlEntities.put("&ucirc;","ï¿½");
+		    htmlEntities.put("&Ucirc;","ï¿½") ; htmlEntities.put("&uuml;","ï¿½");
+		    htmlEntities.put("&Uuml;","ï¿½")  ; htmlEntities.put("&nbsp;"," ");
 		     htmlEntities.put("&apos;","'");
 		    
 		    htmlEntities.put("&euro;","\u20a0");
@@ -276,7 +277,9 @@ public class ExtractPeopleCodeFromCompareReport
 									{
 										Element n3 = d.createElement("link");
 										n3.setAttribute("tree", pcodeTreeNames[t]);
-										URL u = f.toURL();
+										//URL u = f.toURL();
+										URI uri = f.toURI();
+										URL u = uri.toURL();
 										if (u.toString().startsWith(pcodeTreeURLs[t]))
 										{
 											String relURL = "./"+ PEOPLECODETREE + "/"+ pcodeTreeNames[t] + "/" + u.toString().substring(pcodeTreeURLs[t].length());
@@ -310,7 +313,9 @@ public class ExtractPeopleCodeFromCompareReport
 									{
 										Element n3 = d.createElement("diff");
 										n3.setAttribute("tree", pcodeTreeNames[t]);
-										URL u = f2.toURL();
+										//URL u = f2.toURL();
+										URI uri = f2.toURI();
+										URL u = uri.toURL();
 										if (u.toString().startsWith(pcodeTreeURLs[t]))
 										{
 											String relURL = "./"+ PEOPLECODETREE + "/"+ pcodeTreeNames[t] + "/" + u.toString().substring(pcodeTreeURLs[t].length());
@@ -421,7 +426,8 @@ public class ExtractPeopleCodeFromCompareReport
 					{
 						File tree = new File(topDir, pcodeTreeNames[i]);
 						mappers[i] = new DirTreePTmapper(tree);
-						pcodeTreeURLs[i] = tree.toURL().toString();
+						//pcodeTreeURLs[i] = tree.toURL().toString();
+						pcodeTreeURLs[i] = tree.toURI().toURL().toString();
 					}
 				}
 			}
