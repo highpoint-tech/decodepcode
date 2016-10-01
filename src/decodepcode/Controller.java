@@ -20,8 +20,10 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.SortedMap;
@@ -67,8 +69,9 @@ public class Controller {
 	static String oprid = null;
 	static boolean onlyCustom = false;
 	final static File lastTimeFile = new File("last-time.txt");
-	private static Set<String> recsProcessed = new HashSet<String>(); // for SQL IDs 
-
+	private static Set<String> recsProcessed = new HashSet<String>(); // for SQL and CONT IDs 
+	private static Map<String, CONTobject> contMap = new HashMap<String, CONTobject>(); // for CONT objects
+	
 	static Properties props;
 	static
 	{
@@ -371,50 +374,96 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	 */
 	static void processCONTs(ResultSet rs, List<ContainerProcessor> processors) throws SQLException, IOException
 	{
-		
 		while (rs.next())
 		{
 			String contName = rs.getString("CONTNAME");
 			int contType = rs.getInt("CONTTYPE");
 			int altContNum = rs.getInt("ALTCONTNUM");
+			int seqNo  = rs.getInt("SEQNUM");
+			String languageCd = rs.getString("LANGUAGE_CD");
 			
-			String contKey = "CONT:" + contName + "-" + contType + "-" + altContNum;
-			if (recsProcessed.contains(contKey)) {
-				logger.info("Already processed PSCONTDEFN record ID "+ contKey + "; skipping");
+			String contUniqueKey = "CONT:" + contName + "-" + contType + "-" + altContNum + "-" + languageCd + "-" + seqNo;
+			if (recsProcessed.contains(contUniqueKey)) {
+				logger.info("Already processed PSCONTDEFN record ID "+ contUniqueKey + "; skipping");
 				continue;
 			}
-			recsProcessed.add(contKey);
+			recsProcessed.add(contUniqueKey);
 			
-			for (ContainerProcessor processor: processors)
-			{
-				Timestamp d = rs.getTimestamp("LASTUPDDTTM");
-				Date date = d == null ? new Date(0) : new Date(d.getTime());
-				
-				CONTobject cont = new CONTobject(contName, rs.getString("CONTFMT"), rs.getString("LASTUPDOPRID"), 
-						altContNum, contType, date, rs.getBytes("CONTDATA"));
-				
-				processor.processCONT(cont);
-				
+			int compAlg = rs.getInt("COMPALG");
+			if (compAlg != 0){
+				logger.info("PSCONTDEFN record ID "+ contUniqueKey + " has unsupported COMPALG (" + compAlg + "); skipping");
+				continue;
 			}
-
-			countCONT++;
 			
+			Timestamp d = rs.getTimestamp("LASTUPDDTTM");
+			Date date = d == null ? new Date(0) : new Date(d.getTime());
+			
+			
+			// SEQNUM support
+			String contMapKey = "CONT:" + contName + "-" + contType + "-" + altContNum + "-" + languageCd;
+			CONTobject cont;
+			if (contMap.containsKey(contMapKey)){
+				cont = contMap.get(contMapKey);
+				cont.addToContDataArrays(seqNo, rs.getBytes("CONTDATA"));
+			} else {
+				cont = new CONTobject(contName, rs.getString("CONTFMT"), rs.getString("LASTUPDOPRID"), 
+						altContNum, contType, compAlg, seqNo, languageCd, date);
+				cont.addToContDataArrays(seqNo, rs.getBytes("CONTDATA"));
+				contMap.put(contMapKey, cont);
+				countCONT++;
+			}
+			
+		}
+		
+		rs.close();
+		
+		for (CONTobject readyCont : contMap.values()){
+			for (ContainerProcessor processor: processors){
+				processor.processCONT(readyCont);
+			}
 		}
 		
 	}
 	
-	private static boolean canAccess_PSCONTDEFN_CONTDATA(List<ContainerProcessor> processors) throws SQLException
+	
+	private final static int CONT_DB_CONV_NONE = 0;
+	private final static int CONT_DB_CONV_844 = 1;
+	private final static int CONT_DB_CONV_845 = 2;
+	/**
+	 * Content database convention
+	 * @param processors
+	 * @return
+	 *  CONT_DB_CONV_NONE - none or unknown
+	 *  CONT_DB_CONV_844 - PeopleSoft 8.44 and before
+	 *  CONT_DB_CONV_845 - PeopleSoft 8.45 and after
+	 */
+	private static int getContdataConvention(List<ContainerProcessor> processors) throws SQLException
 	{
-		boolean canAccess_PSCONTDEFN_CONTDATA = false;
+		ContainerProcessor pc1 = processors.listIterator().next();
+		
 		try {
-			ContainerProcessor pc1 = processors.listIterator().next();
 			st = pc1.getJDBCconnection().createStatement();
-			st.executeQuery("select CONTDATA from "+ pc1.getDBowner() + "PSCONTDEFN where 1=0");
-			canAccess_PSCONTDEFN_CONTDATA = true;
-			logger.info("Can read PSCONTDEFN.CONTDATA");
-		} catch (SQLException e) {logger.info("Can NOT access PSCONTDEFN.CONTDATA - "+ e.getMessage()); }
+			st.executeQuery("select CONTNAME, ALTCONTNUM, CONTTYPE from "+ pc1.getDBowner() + "PSCONTDEFN where 1=0");
+			st.executeQuery("select CONTNAME, ALTCONTNUM, CONTTYPE, LANGUAGE_CD from "+ pc1.getDBowner() + "PSCONTDEFNLANG where 1=0");
+			st.executeQuery("select CONTNAME, ALTCONTNUM, CONTTYPE, SEQNUM, CONTDATA from "+ pc1.getDBowner() + "PSCONTENT where 1=0");
+			st.executeQuery("select CONTNAME, ALTCONTNUM, CONTTYPE, LANGUAGE_CD, SEQNUM, CONTDATA from "+ pc1.getDBowner() + "PSCONTENTLANG where 1=0");
+			logger.info("getContdataConvention: PeopleSoft >= 8.45 CONT data structures found.");
+			return CONT_DB_CONV_845;
+		} catch (SQLException e) { logger.info("getContdataConvention: PeopleSoft >= 8.45 CONT data structures not found. " + e.getMessage()); }
 		finally { if (st != null) st.close(); }
-		return canAccess_PSCONTDEFN_CONTDATA;
+		
+		try {
+			st = pc1.getJDBCconnection().createStatement();
+			st.executeQuery("select CONTNAME, ALTCONTNUM, CONTTYPE, CONTDATA from "+ pc1.getDBowner() + "PSCONTDEFN where 1=0");
+			st.executeQuery("select CONTNAME, ALTCONTNUM, CONTTYPE, LANGUAGE_CD, CONTDATA from "+ pc1.getDBowner() + "PSCONTDEFNLANG where 1=0");
+			logger.info("getContdataConvention: PeopleSoft <= 8.44 CONT data structures found.");
+			return CONT_DB_CONV_844;
+		} catch (SQLException e) { logger.info("getContdataConvention: PeopleSoft <= 8.44 CONT data structures not found. " + e.getMessage()); }
+		finally { if (st != null) st.close(); }
+
+		logger.info("getContdataConvention: No PeopleSoft CONT data structures found.");
+		return CONT_DB_CONV_NONE;
+		
 	}
 
 	public static void processCONTforProject(String projectName, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
@@ -425,28 +474,57 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		
 		logger.info("\n==================== Decode content ==================== ");
+		int contdataConvention = getContdataConvention(processors);
+		StringBuffer q = new StringBuffer();
 		
-		if (!canAccess_PSCONTDEFN_CONTDATA(processors)){
+		switch (contdataConvention) {
+		case CONT_DB_CONV_845:
+			
+			q.append("select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.COMPALG, c.LASTUPDOPRID, c.LASTUPDDTTM, cont.LANGUAGE_CD, cont.SEQNUM, cont.CONTDATA ");
+			q.append("from " + dbowner + "PSCONTDEFN c ");
+			q.append(" join ( ");
+			q.append("     select cd.CONTNAME, cd.ALTCONTNUM, cd.CONTTYPE, 'default' as LANGUAGE_CD, cc.SEQNUM, cc.CONTDATA from " + dbowner + "PSCONTDEFN cd");
+			q.append("        join " + dbowner + "PSCONTENT cc on cc.CONTNAME = cd.CONTNAME and cc.ALTCONTNUM = cd.ALTCONTNUM and cc.CONTTYPE = cd.CONTTYPE");
+			q.append("     union all");
+			q.append("     select cd.CONTNAME, cd.ALTCONTNUM, cd.CONTTYPE, cd.LANGUAGE_CD, cc.SEQNUM, cc.CONTDATA from " + dbowner + "PSCONTDEFNLANG cd");
+			q.append("        join " + dbowner + "PSCONTENTLANG cc on cc.CONTNAME = cd.CONTNAME and cc.ALTCONTNUM = cd.ALTCONTNUM and cc.CONTTYPE = cd.CONTTYPE and cc.LANGUAGE_CD = cd.LANGUAGE_CD ");
+			q.append("  ) cont on cont.CONTNAME = c.CONTNAME and cont.ALTCONTNUM = c.ALTCONTNUM and cont.CONTTYPE = c.CONTTYPE ");
+			
+			break;
+		case CONT_DB_CONV_844:
+			
+			q.append("select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.COMPALG, c.LASTUPDOPRID, c.LASTUPDDTTM, cont.LANGUAGE_CD, 1 as SEQNUM, cont.CONTDATA ");
+			q.append("from " + dbowner + "PSCONTDEFN c ");
+			q.append(" join ( ");
+			q.append("     select CONTNAME, ALTCONTNUM, CONTTYPE, 'default' as LANGUAGE_CD, CONTDATA from " + dbowner + "PSCONTDEFN");
+			q.append("     union all");
+			q.append("     select CONTNAME, ALTCONTNUM, CONTTYPE, LANGUAGE_CD, CONTDATA from " + dbowner + "PSCONTDEFNLANG ");
+			q.append("  ) cont on cont.CONTNAME = c.CONTNAME and cont.ALTCONTNUM = c.ALTCONTNUM and cont.CONTTYPE = c.CONTTYPE ");
+			
+			break;
+		default:
 			return;
 		}
 		
-		String q = "select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.LASTUPDOPRID, c.LASTUPDDTTM, c.CONTDATA from "
-				+ dbowner + "PSCONTDEFN c, " + dbowner + "PSPROJECTITEM pi " 
-				+ "where c.CONTNAME = pi.OBJECTVALUE1 and to_char(c.CONTTYPE) = pi.OBJECTVALUE2 and pi.OBJECTID1 in (90, 91) "
-				+ "and pi.PROJECTNAME='" + projectName + "' ";
+		q.append("  join " + dbowner + "PSPROJECTITEM pi on c.CONTNAME = pi.OBJECTVALUE1 and to_char(c.CONTTYPE) = pi.OBJECTVALUE2 and pi.OBJECTID1 in (90, 91) and pi.PROJECTNAME='" + projectName + "' ");
 		
 		if (getContentHtml && getContentImage){
-			q += " and c.CONTTYPE in (1,4) ";
+			q.append(" where c.CONTTYPE in (1,4) ");
 		} else if (getContentHtml) {
-			q += " and c.CONTTYPE = 4 ";
+			q.append(" where c.CONTTYPE = 4 ");
 		} else if (getContentImage) {
-			q += " and c.CONTTYPE = 1 ";
+			q.append(" where c.CONTTYPE = 1 ");
 		}
 		
+		if (contdataConvention == CONT_DB_CONV_845)
+			q.append(" order by cont.SEQNUM asc ");
+		
+		String q_str = q.toString();
+		
 		Statement st0 =  dbconn.createStatement();
-		logger.fine(q);
+		logger.fine(q_str);
 		logger.info("\n");
-		ResultSet rs = st0.executeQuery(q);		
+		ResultSet rs = st0.executeQuery(q_str);		
 		processCONTs(rs, processors);
 		st0.close();
 		
@@ -469,33 +547,67 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		
 		logger.info("\n==================== Decode content ==================== ");
-		
-		if (!canAccess_PSCONTDEFN_CONTDATA(processors)){
+		int contdataConvention = getContdataConvention(processors);
+		StringBuffer q = new StringBuffer();
+
+		switch (contdataConvention) {
+		case CONT_DB_CONV_845:
+			
+			q.append("select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.COMPALG, c.LASTUPDOPRID, c.LASTUPDDTTM, cont.LANGUAGE_CD, cont.SEQNUM, cont.CONTDATA ");
+			q.append("from " + dbowner + "PSCONTDEFN c ");
+			q.append(" join ( ");
+			q.append("     select cd.CONTNAME, cd.ALTCONTNUM, cd.CONTTYPE, 'default' as LANGUAGE_CD, cc.SEQNUM, cc.CONTDATA from " + dbowner + "PSCONTDEFN cd");
+			q.append("        join " + dbowner + "PSCONTENT cc on cc.CONTNAME = cd.CONTNAME and cc.ALTCONTNUM = cd.ALTCONTNUM and cc.CONTTYPE = cd.CONTTYPE");
+			q.append("     union all");
+			q.append("     select cd.CONTNAME, cd.ALTCONTNUM, cd.CONTTYPE, cd.LANGUAGE_CD, cc.SEQNUM, cc.CONTDATA from " + dbowner + "PSCONTDEFNLANG cd");
+			q.append("        join " + dbowner + "PSCONTENTLANG cc on cc.CONTNAME = cd.CONTNAME and cc.ALTCONTNUM = cd.ALTCONTNUM and cc.CONTTYPE = cd.CONTTYPE and cc.LANGUAGE_CD = cd.LANGUAGE_CD ");
+			q.append("  ) cont on cont.CONTNAME = c.CONTNAME and cont.ALTCONTNUM = c.ALTCONTNUM and cont.CONTTYPE = c.CONTTYPE ");
+			
+			break;
+		case CONT_DB_CONV_844:
+			
+			q.append("select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.COMPALG, c.LASTUPDOPRID, c.LASTUPDDTTM, cont.LANGUAGE_CD, 1 as SEQNUM, cont.CONTDATA ");
+			q.append("from " + dbowner + "PSCONTDEFN c ");
+			q.append(" join ( ");
+			q.append("     select CONTNAME, ALTCONTNUM, CONTTYPE, 'default' as LANGUAGE_CD, CONTDATA from " + dbowner + "PSCONTDEFN");
+			q.append("     union all");
+			q.append("     select CONTNAME, ALTCONTNUM, CONTTYPE, LANGUAGE_CD, CONTDATA from " + dbowner + "PSCONTDEFNLANG ");
+			q.append("  ) cont on cont.CONTNAME = c.CONTNAME and cont.ALTCONTNUM = c.ALTCONTNUM and cont.CONTTYPE = c.CONTTYPE ");
+			
+			break;
+		default:
+			
 			return;
 		}
+		
+		q.append(" where c.LASTUPDDTTM >= ?");
 		
 		// query all environments with the query on LASTUPDDTTM" 
 		for (ContainerProcessor processor: processors)
 		{
-			String q = "select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.LASTUPDOPRID, c.LASTUPDDTTM, c.CONTDATA from "
-					+ processor.getDBowner() + "PSCONTDEFN c where c.LASTUPDDTTM >= ?";
 			
 			if (oprid != null)
-				q += " and c.LASTUPDOPRID = '" + oprid + "'";
+				q.append(" and c.LASTUPDOPRID = '" + oprid + "'");
+				
 			if (onlyCustom)
-				q += " and c.LASTUPDOPRID <> 'PPLSOFT' ";
+				q.append(" and c.LASTUPDOPRID <> 'PPLSOFT' ");
 			
 			if (getContentHtml && getContentImage){
-				q += " and c.CONTTYPE in (1,4) ";
+				q.append(" and c.CONTTYPE in (1,4) ");
 			} else if (getContentHtml) {
-				q += " and c.CONTTYPE = 4 ";
+				q.append(" and c.CONTTYPE = 4 ");
 			} else if (getContentImage) {
-				q += " and c.CONTTYPE = 1 ";
+				q.append(" and c.CONTTYPE = 1 ");
 			}
 			
-			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q);
+			if (contdataConvention == CONT_DB_CONV_845)
+				q.append(" order by cont.SEQNUM asc ");
+			
+			String q_str = q.toString();
+			
+			PreparedStatement st0 =  processor.getJDBCconnection().prepareStatement(q_str);
 			st0.setTimestamp(1, date);
-			logger.fine(q);
+			logger.fine(q_str);
 			logger.info("\n");
 			ResultSet rs = st0.executeQuery();
 			processCONTs(rs, processors);
@@ -520,26 +632,58 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		}
 		
 		logger.info("\n==================== Decode content ==================== ");
+		int contdataConvention = getContdataConvention(processors);
+		StringBuffer q = new StringBuffer();
 		
-		if (!canAccess_PSCONTDEFN_CONTDATA(processors)){
+		switch (contdataConvention) {
+		case CONT_DB_CONV_845:
+			
+			q.append("select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.COMPALG, c.LASTUPDOPRID, c.LASTUPDDTTM, cont.LANGUAGE_CD, cont.SEQNUM, cont.CONTDATA ");
+			q.append("from " + dbowner + "PSCONTDEFN c ");
+			q.append(" join ( ");
+			q.append("     select cd.CONTNAME, cd.ALTCONTNUM, cd.CONTTYPE, 'default' as LANGUAGE_CD, cc.SEQNUM, cc.CONTDATA from " + dbowner + "PSCONTDEFN cd");
+			q.append("        join " + dbowner + "PSCONTENT cc on cc.CONTNAME = cd.CONTNAME and cc.ALTCONTNUM = cd.ALTCONTNUM and cc.CONTTYPE = cd.CONTTYPE");
+			q.append("     union all");
+			q.append("     select cd.CONTNAME, cd.ALTCONTNUM, cd.CONTTYPE, cd.LANGUAGE_CD, cc.SEQNUM, cc.CONTDATA from " + dbowner + "PSCONTDEFNLANG cd");
+			q.append("        join " + dbowner + "PSCONTENTLANG cc on cc.CONTNAME = cd.CONTNAME and cc.ALTCONTNUM = cd.ALTCONTNUM and cc.CONTTYPE = cd.CONTTYPE and cc.LANGUAGE_CD = cd.LANGUAGE_CD ");
+			q.append("  ) cont on cont.CONTNAME = c.CONTNAME and cont.ALTCONTNUM = c.ALTCONTNUM and cont.CONTTYPE = c.CONTTYPE ");
+			
+			break;
+		case CONT_DB_CONV_844:
+			
+			q.append("select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.COMPALG, c.LASTUPDOPRID, c.LASTUPDDTTM, cont.LANGUAGE_CD, 1 as SEQNUM, cont.CONTDATA ");
+			q.append("from " + dbowner + "PSCONTDEFN c ");
+			q.append(" join ( ");
+			q.append("     select CONTNAME, ALTCONTNUM, CONTTYPE, 'default' as LANGUAGE_CD, CONTDATA from " + dbowner + "PSCONTDEFN");
+			q.append("     union all");
+			q.append("     select CONTNAME, ALTCONTNUM, CONTTYPE, LANGUAGE_CD, CONTDATA from " + dbowner + "PSCONTDEFNLANG ");
+			q.append("  ) cont on cont.CONTNAME = c.CONTNAME and cont.ALTCONTNUM = c.ALTCONTNUM and cont.CONTTYPE = c.CONTTYPE ");
+			
+			break;
+		default:
 			return;
 		}
 		
-		String q = "select c.CONTNAME, c.ALTCONTNUM, c.CONTTYPE, c.CONTFMT, c.LASTUPDOPRID, c.LASTUPDDTTM, c.CONTDATA from "
-				+ dbowner + "PSCONTDEFN c where c.LASTUPDOPRID <> 'PPLSOFT'";
+		q.append("where c.LASTUPDOPRID <> 'PPLSOFT'");
+				
 		if (oprid != null)
-			q += " and c.LASTUPDOPRID = '" + oprid + "'";
+			q.append(" and c.LASTUPDOPRID = '" + oprid + "'");
 		
 		if (getContentHtml && getContentImage){
-			q += " and c.CONTTYPE in (1,4) ";
+			q.append(" and c.CONTTYPE in (1,4) ");
 		} else if (getContentHtml) {
-			q += " and c.CONTTYPE = 4 ";
+			q.append(" and c.CONTTYPE = 4 ");
 		} else if (getContentImage) {
-			q += " and c.CONTTYPE = 1 ";
+			q.append(" and c.CONTTYPE = 1 ");
 		}
 		
-		PreparedStatement st0 =  dbconn.prepareStatement(q);
-		logger.fine(q);
+		if (contdataConvention == CONT_DB_CONV_845)
+			q.append(" order by cont.SEQNUM asc ");
+		
+		String q_str = q.toString();
+		
+		PreparedStatement st0 =  dbconn.prepareStatement(q_str);
+		logger.fine(q_str);
 		logger.info("\n");
 		ResultSet rs = st0.executeQuery();		
 		processCONTs(rs, processors);
@@ -895,7 +1039,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	
 	static void writeStats()
 	{
-		String msg = "Processed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)";
+		String msg = "\nProcessed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)";
 		if (getContentHtml || getContentImage){
 			msg = msg + ", and " + countCONT + " Content definition(s)";
 		}

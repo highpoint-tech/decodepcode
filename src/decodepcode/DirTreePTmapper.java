@@ -120,7 +120,7 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 			extension = lastUpdateExt ? "last_update" : contObject.contFmt;
 		}
 		
-		path = "/" + path + "/" + filterFileName(contObject.contName) + "/" 
+		path = "/" + path + "/" + filterFileName(contObject.contName) + "/" + filterFileName(contObject.languageCd) + "/" 
 				+ filterFileName(contObject.contName) + "." + contObject.altContNum + "." + extension;
 
 		return path;
