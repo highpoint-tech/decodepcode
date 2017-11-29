@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-public class PeopleCodeContainerFromFile extends PeopleCodeContainer implements  PeopleToolsObject 
+public class PeopleCodeContainerFromFile extends PeopleCodeContainer implements  PeopleToolsObject
 {
 	File binFile;
 	String key;
@@ -25,7 +25,8 @@ public class PeopleCodeContainerFromFile extends PeopleCodeContainer implements 
 	{
 		this( _binFile, null);
 	}
-	public PeopleCodeContainerFromFile( File _binFile, PeopleToolsObject obj) throws IOException 
+
+	public PeopleCodeContainerFromFile( File _binFile, PeopleToolsObject obj) throws IOException
 	{
 		binFile = _binFile;
 		InputStream io = new FileInputStream(binFile);
@@ -53,8 +54,8 @@ public class PeopleCodeContainerFromFile extends PeopleCodeContainer implements 
 				for ( Object r: p.keySet())
 				{
 					references.put( new Integer((String) r), (String) p.get(r));
-				}					
-			} 
+				}
+			}
 			File stampFile = new File( binFile.getParent(), key + ".last_update");
 			if (stampFile.exists())
 			{
@@ -63,15 +64,15 @@ public class PeopleCodeContainerFromFile extends PeopleCodeContainer implements 
 				String line = br.readLine();
 				try {
 					setLastChangedDtTm(ProjectReader.df2.parse(line));
-				} catch ( ParseException e) {} 
+				} catch ( ParseException e) {}
 				setLastChangedBy(br.readLine());
 				br.close();
-			} 
+			}
 			if (obj == null)
 			{
 				try
 				{
-					parseFileName();				
+					parseFileName();
 				}
 				catch (IllegalArgumentException ia)
 				{
@@ -87,28 +88,28 @@ public class PeopleCodeContainerFromFile extends PeopleCodeContainer implements 
 				for (String k: keys)
 					if (k != null && k.length() > 0)
 						key += "-" + k;
-			}					
+			}
 		}
 		else
 			key = binFileName;
 	}
-	
+
 	void parseFileName()
 	{
 		// e.g. App_Package_PeopleCode-PT_ANALYTICMODELDEFN-RuleExpressions-Assignment-OnExecute
 		String[] parts = key.split("-");
 		if (parts.length < 2)
 			throw new IllegalArgumentException("Name convention for PeopleCode file '" + key + "' not used");
-			
+
 		objType = JDBCPeopleCodeContainer.objectTypeFromString(parts[0]);
-		if (objType < 0) 
+		if (objType < 0)
 			throw new IllegalArgumentException("Don't recognize PeopleCode type '" + parts[0] + "'");
 		keys = new String[parts.length - 1];
 		for (int i = 1; i < parts.length; i++)
 			keys[i-1] = parts[i];
-		
+
 	}
-	
+
 	@Override
 	public String getCompositeKey() {
 		return key;
@@ -119,33 +120,34 @@ public class PeopleCodeContainerFromFile extends PeopleCodeContainer implements 
 		return references.get(nameNum);
 	}
 
-public static void main( String[] a)
-{
-	try {
-		new PeopleCodeParser().reverseEngineer(
-				new PeopleCodeContainerFromFile(new File("C:\\projects\\sandbox\\PeopleCode\\TEST", "BO_SEARCH_Runtime_Apps_ServiceOrder_BusinessContact_Contact_OnExecute.bin"))
-		);
-	} catch (Exception e) {
-		e.printStackTrace();
+	public static void main( String[] a)
+	{
+		try {
+			new PeopleCodeParser().reverseEngineer(
+					new PeopleCodeContainerFromFile(new File("C:\\projects\\sandbox\\PeopleCode\\TEST", "BO_SEARCH_Runtime_Apps_ServiceOrder_BusinessContact_Contact_OnExecute.bin"))
+			);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
-}
 
-@Override
-void writeReferencesInDirectory(File f) throws IOException {
-	throw new IllegalArgumentException("Class " + getClass().getName() + " can not write its contents back to the file system");	
-}
+	@Override
+	void writeReferencesInDirectory(File f) throws IOException {
+		throw new IllegalArgumentException("Class " + getClass().getName() + " can not write its contents back to the file system");
+	}
 
-@Override
-public String[] getKeys() {
-	return keys;
-}
+	@Override
+	public String[] getKeys() {
+		return keys;
+	}
 
-@Override
-public int getPeopleCodeType() {
-	return objType;
-}
-public int[] getKeyTypes() {
-	return CreateProjectDefProcessor.getObjTypesFromPCType(objType, keys);
-}
-	
+	@Override
+	public int getPeopleCodeType() {
+		return objType;
+	}
+
+	public int[] getKeyTypes() {
+		return CreateProjectDefProcessor.getObjTypesFromPCType(objType, keys);
+	}
+
 }

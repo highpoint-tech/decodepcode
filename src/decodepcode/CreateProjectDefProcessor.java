@@ -12,10 +12,10 @@ import java.util.logging.Logger;
 
 import decodepcode.compares.ExtractPeopleCodeFromCompareReport;
 
-public class CreateProjectDefProcessor extends ContainerProcessor 
+public class CreateProjectDefProcessor extends ContainerProcessor
 {
 	static Logger logger = Logger.getLogger(ExtractPeopleCodeFromCompareReport.class.getName());
-	
+
 	private static class ObjTypes
 	{
 		int[] i = new int[7];
@@ -23,11 +23,11 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		{
 			i[0] = i1; i[1] = i1; i[2]=i2; i[3]=i3; i[4]=0; i[5]=0; i[6]=0;
 		}
-		public int[] getObjTypes() { return i; } 
+		public int[] getObjTypes() { return i; }
 	}
 	private static ObjTypes getObjectTypesFromPCodeType( int pcType)
 	{
-		if (pcType== 8 ) return new ObjTypes(	1 ,   2  ,  12 ,   0  ); 
+		if (pcType== 8 ) return new ObjTypes(	1 ,   2  ,  12 ,   0  );
 		if (pcType== 9 ) return new ObjTypes(	3 ,   4  ,  5  ,   12 );
 		if (pcType==39 ) return new ObjTypes(	60,   12 ,  0  ,   0  );
 		if (pcType==40 ) return new ObjTypes(	60,   87 ,  12 ,   0  );
@@ -40,6 +40,7 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		if (pcType==48 ) return new ObjTypes(	10,   39 ,  1  ,   2  );
 		return null;
 	}
+
 	public static int[] getObjTypesFromPCType( int pcType, String[] keys)
 	{
 		if (pcType == 58) // App Package Pcode - check number of keys
@@ -53,6 +54,7 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 			return null;
 		return o.getObjTypes();
 	}
+
 	static private String fill( int l)
 	{
 		String s= "";
@@ -60,11 +62,13 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 			s+= " ";
 		return s;
 	}
+
 	static class BarePTobject implements PeopleToolsObject
 	{
 		int[] objTypes;
 		String[] objValues;
 		int type;
+
 		public BarePTobject( PeopleCodeObject o ) {
 			type = o.getPeopleCodeType();
 			objTypes = new int[4];
@@ -74,9 +78,9 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 				if (type == 43) // app engine- cram 7 keys into 4
 				{
 					objValues[0] = o.getKeys()[0];
-					objValues[1] =  
+					objValues[1] =
 						(o.getKeys()[1].length() < 8? o.getKeys()[1]+" "
-								: o.getKeys()[1].substring(0,8)) 
+								: o.getKeys()[1].substring(0,8))
 						+ o.getKeys()[2] +o.getKeys()[3] +"  " + o.getKeys()[4];
 					objValues[2] = o.getKeys()[5];
 					objValues[3] = o.getKeys()[6];
@@ -90,8 +94,8 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 						objValues[2] = o.getKeys()[2];
 						objValues[3] = o.getKeys()[3] + fill(29 - o.getKeys()[3].length() - o.getKeys()[4].length()) + o.getKeys()[4];
 						objTypes = new int[] {10,   39 ,  1  ,   2  };
-						
-					}				
+
+					}
 				else
 					for (int i = 0; i < 4; i++)
 					{
@@ -124,20 +128,22 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		}
 		public String getSource() {
 			return null;
-		}	
+		}
+
 		@Override
 		public boolean equals( Object o1)
 		{
 			BarePTobject o = (BarePTobject) o1;
-			return type == o.type 
+			return type == o.type
 			&& objValues[0].equals(o.objValues[0])
 			&& objValues[1].equals(o.objValues[1])
 			&& objValues[2].equals(o.objValues[2])
 			&& objValues[3].equals(o.objValues[3]);
 		}
+
 		public String toString()
 		{
-			return objValues[0] + "," +objValues[1] + "," +objValues[2] + "," +objValues[3]; 
+			return objValues[0] + "," +objValues[1] + "," +objValues[2] + "," +objValues[3];
 		}
 	}
 
@@ -147,14 +153,14 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 	String projName;
 	boolean onlyProjectItems;
 	File sqlFileToCreate;
-	
+
 	String stripExtension( String s)
 	{
 		int i = s.indexOf(".");
 		return (i < 0)? s: s.substring(0, i);
 	}
-	
-	public CreateProjectDefProcessor( File _projectToCreate, boolean _onlyProjectItems) 
+
+	public CreateProjectDefProcessor( File _projectToCreate, boolean _onlyProjectItems)
 	{
 		projectToCreate= _projectToCreate;
 		onlyProjectItems = _onlyProjectItems;
@@ -162,15 +168,17 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		sqlFileToCreate = new File(projectToCreate.getParent(), projName + ".sql");
 		df = new SimpleDateFormat("yyyy-MM-dd-HH.mm.ss.000000");
 	}
+
 	@Override
-	public void aboutToProcess() 
+	public void aboutToProcess()
 	{
 		list = new HashSet<BarePTobject>();
 	}
+
 	@Override
-	public void finishedProcessing() 
+	public void finishedProcessing()
 	{
-		try 
+		try
 		{
 		PrintWriter p = new PrintWriter(projectToCreate),
 				p2 = new PrintWriter(sqlFileToCreate);
@@ -213,7 +221,7 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		p.println("        <lpPit> POINTER");
 		}
 		p.println("          <rowset name=\"PjmPit\" size=\"" + (list.size() * 296) + "\" count=\"" + list.size() + "\">");
-		for (BarePTobject o: list)			
+		for (BarePTobject o: list)
 		{
 		p.println("            <row>");
 		p.println("              <eObjectType>" + o.getPeopleCodeType() + "</eObjectType>");
@@ -233,26 +241,26 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		p.println("              <bCopyDone>0</bCopyDone>");
 		p.println("              <eRowStatus>3</eRowStatus>");
 		p.println("            </row>");
-		
+
 		p2.println("INSERT INTO \"PSPROJECTITEM\" (PROJECTNAME,OBJECTTYPE,OBJECTID1,OBJECTVALUE1,OBJECTID2,OBJECTVALUE2,OBJECTID3,OBJECTVALUE3,OBJECTID4,OBJECTVALUE4,NODETYPE,SOURCESTATUS,TARGETSTATUS,UPGRADEACTION,TAKEACTION,COPYDONE) VALUES (");
-		p2.print("\t'"+ projName + "',"); //  PROJECTNAME      
-		p2.print("'" + o.getPeopleCodeType() + "',"); //  OBJECTTYPE      
-		p2.print( o.getKeyTypes()[0] + ","); //  OBJECTID1      
-		p2.print("'" + (o.getKeys()[0] == null? " " : o.getKeys()[0]) + "',"); //  OBJECTVALUE1      
-		p2.print( o.getKeyTypes()[1] + ","); //  OBJECTID2      
-		p2.print("'" + (o.getKeys()[1] == null? " " : o.getKeys()[1]) + "',"); //  OBJECTVALUE2      
-		p2.print( o.getKeyTypes()[2] + ","); //  OBJECTID3      
-		p2.print("'" + (o.getKeys()[2] == null? " " : o.getKeys()[2]) + "',"); //  OBJECTVALUE3      
-		p2.print( o.getKeyTypes()[3] + ","); //  OBJECTID4      
-		p2.print("'" + (o.getKeys()[3] == null? " " : o.getKeys()[3]) + "',"); //  OBJECTVALUE3      
-		p2.print("0,"); //  NODETYPE       
-		p2.print("0,"); //  SOURCESTATUS      
-		p2.print("0,"); //  TARGETSTATUS      
-		p2.print("0,"); //  UPGRADEACTION      
-		p2.print("1,"); //  TAKEACTION      
-		p2.println("0);"); //  COPYDONE        
+		p2.print("\t'"+ projName + "',"); //  PROJECTNAME
+		p2.print("'" + o.getPeopleCodeType() + "',"); //  OBJECTTYPE
+		p2.print( o.getKeyTypes()[0] + ","); //  OBJECTID1
+		p2.print("'" + (o.getKeys()[0] == null? " " : o.getKeys()[0]) + "',"); //  OBJECTVALUE1
+		p2.print( o.getKeyTypes()[1] + ","); //  OBJECTID2
+		p2.print("'" + (o.getKeys()[1] == null? " " : o.getKeys()[1]) + "',"); //  OBJECTVALUE2
+		p2.print( o.getKeyTypes()[2] + ","); //  OBJECTID3
+		p2.print("'" + (o.getKeys()[2] == null? " " : o.getKeys()[2]) + "',"); //  OBJECTVALUE3
+		p2.print( o.getKeyTypes()[3] + ","); //  OBJECTID4
+		p2.print("'" + (o.getKeys()[3] == null? " " : o.getKeys()[3]) + "',"); //  OBJECTVALUE3
+		p2.print("0,"); //  NODETYPE
+		p2.print("0,"); //  SOURCESTATUS
+		p2.print("0,"); //  TARGETSTATUS
+		p2.print("0,"); //  UPGRADEACTION
+		p2.print("1,"); //  TAKEACTION
+		p2.println("0);"); //  COPYDONE
 		}
-		p.println("          </rowset>");		
+		p.println("          </rowset>");
 		if (!onlyProjectItems) {
 		p.println("        </lpPit>");
 		p.println("        <bCopyAllSec>1</bCopyAllSec>");
@@ -487,18 +495,19 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 		p.println("      </row>");
 		p.println("    </rowset>");
 		p.println("  </instance>");
-		p.println("");		
-		p.println("");		
+		p.println("");
+		p.println("");
 		}
 		p.close();
 		p2.close();
 		logger.info("Created " + projectToCreate + "\n      and " + sqlFileToCreate +"\n      ("+ list.size() + " object(s))");
 		}
-		catch (Exception ex) { 
+		catch (Exception ex) {
 			ex.printStackTrace();
 			logger.severe(ex.getMessage());
 		}
-	} 
+	}
+
 	@Override
 	public void process(PeopleCodeObject c) throws IOException {
 		BarePTobject c1 = new BarePTobject(c);
@@ -509,15 +518,15 @@ public class CreateProjectDefProcessor extends ContainerProcessor
 	@Override
 	public void processSQL(SQLobject sql) throws IOException {
 		// TODO Auto-generated method stub
-		
+
 	}
-		
+
 	@Override
 	public void processCONT(CONTobject cont) throws IOException {
 		// TODO Auto-generated method stub
-		
+
 	}
-	
+
 	public static void main( String[] a)
 	{
 		try {

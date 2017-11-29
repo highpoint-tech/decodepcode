@@ -12,17 +12,17 @@ import java.util.Properties;
 
 import decodepcode.Controller;
 
-public class RunExternalDiffProgram 
+public class RunExternalDiffProgram
 {
 	public final static String  eol = System.getProperty("line.separator");
 	public static File diffProg = new File("C:\\program files\\gnu\\diff.exe");
-	
+
 	public static String getLongDiff( File f1, File f2) throws IOException
 	{
 		String[] p = {"-y"};
 		return getDiff(diffProg, p, f1, f2);
 	}
-	
+
 	public static String getShortDiff( File f1, File f2) throws IOException
 	{
 		long count = 0;
@@ -35,14 +35,13 @@ public class RunExternalDiffProgram
 		return "" + count + " line(s) in diff";
 	}
 
-	
 	public static String getDiff( File diffProg, String[] params, File f1, File f2) throws IOException
 	{
 		if (!f1.exists() )
 			throw new IllegalArgumentException("File "+ f1 + " does not exist");
 		if (!f2.exists() )
 			throw new IllegalArgumentException("File "+ f2 + " does not exist");
-		
+
 		if (!diffProg.exists())
 			throw new IllegalArgumentException("Diff program " + diffProg + " not found" );
 		ArrayList<String> a = new ArrayList<String>();
@@ -54,11 +53,11 @@ public class RunExternalDiffProgram
 		String[] cmdArray = new String[a.size()] ;
 		a.toArray(cmdArray);
 /*		String cmd = "";
-		for (String s: cmdArray) 
+		for (String s: cmdArray)
 			cmd += s + " ";
 		System.out.println(cmd);*/
 		Process p = Runtime.getRuntime().exec(cmdArray);
-		InputStream stdout = p.getInputStream(), 
+		InputStream stdout = p.getInputStream(),
 					stderr = p.getErrorStream();
 		BufferedReader br = new BufferedReader(new InputStreamReader(stdout)),
 				brErr  = new BufferedReader(new InputStreamReader(stderr));
@@ -67,7 +66,7 @@ public class RunExternalDiffProgram
 
 		while ( (line = br.readLine()) != null || ((line2 = brErr.readLine()) != null))
 		{
-			if (line != null) 
+			if (line != null)
 			{
 				w.write(line);
 				w.write(eol);
@@ -77,7 +76,7 @@ public class RunExternalDiffProgram
 		//System.out.println("Exit value = " + p.exitValue());
 		return w.toString();
 	}
-	
+
 	public RunExternalDiffProgram() throws IOException, InterruptedException
 	{
     	Properties props = Controller.readProperties();
@@ -92,7 +91,7 @@ public class RunExternalDiffProgram
 			  f2 = new File(dir, "Merged/" + path);
 		System.out.println(getShortDiff(f1, f2));
 	}
-	
+
 	/**
 	 * @param args
 	 */
@@ -103,5 +102,4 @@ public class RunExternalDiffProgram
 			e.printStackTrace();
 		}
 	}
-
 }

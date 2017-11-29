@@ -11,7 +11,7 @@ public abstract class ContainerProcessor
 	private PreparedStatement ps;
 
 	public void aboutToProcess() {}
-	public void finishedProcessing() {} 
+	public void finishedProcessing() {}
 	abstract public void process( PeopleCodeObject c) throws IOException;
 	abstract public void processSQL( SQLobject sql) throws IOException;
 	abstract public void processCONT(CONTobject cont) throws IOException;
@@ -26,7 +26,7 @@ public abstract class ContainerProcessor
 	}
 	public void setJDBCconnection(Connection jDBCconnection) {
 		JDBCconnection = jDBCconnection;
-	}				
+	}
 	public String getTag() {
 		return tag;
 	}

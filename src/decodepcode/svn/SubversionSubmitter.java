@@ -37,16 +37,16 @@ import decodepcode.SQLobject;
 import decodepcode.VersionControlSystem;
 
 /**
- * 
+ *
  * Uses the SVNKit library to commit .pcode and .sql files to Subversion.
  *
  */
-public class SubversionSubmitter 
+public class SubversionSubmitter
 {
 	static Logger logger = Logger.getLogger(SubversionSubmitter.class.getName());
 
     private static void addDirPath(SVNRepository repository, String dirPath) throws SVNException
-    {	
+    {
     	logger.fine("addDirPath: "+ dirPath);
     	if (dirPath.endsWith("/"))
     		dirPath = dirPath.substring(0, dirPath.length() -1 );
@@ -75,7 +75,7 @@ public class SubversionSubmitter
         		logger.fine("Opening " + curPath);
         		editor.openDir(curPath, -1);
         	}
-        		
+
         logger.fine("Now calling editor.addDir(" + dirPath + ", ...)");
         editor.addDir(dirPath, null, -1);
         for (int i = 0; i < dirs.length; i++)
@@ -83,21 +83,21 @@ public class SubversionSubmitter
         		editor.closeDir();
 
         editor.closeEdit();
-        
+
     }
-    
-    private static void addFile( SVNRepository repository, 
-    							String filePath, 
+
+    private static void addFile( SVNRepository repository,
+    							String filePath,
     							String commitStr,
-    							byte[] data) throws SVNException	    
-    {	
+    							byte[] data) throws SVNException
+    {
     	int lastSlash = filePath.lastIndexOf("/");
     	if (lastSlash < 1)
     		throw new IllegalArgumentException("Expected file name with directory path, got " + filePath);
     	String dirPath = filePath.substring(0, lastSlash);
     	addDirPath(repository, dirPath);
         SVNNodeKind nodeKind = repository.checkPath( filePath, -1);
-        if (nodeKind == SVNNodeKind.DIR) 
+        if (nodeKind == SVNNodeKind.DIR)
             throw new SVNException(SVNErrorMessage.create(SVNErrorCode.UNKNOWN, "Entry at URL ''{0}'' is a directory while a file was expected", filePath));
         boolean doesNotExist = nodeKind == SVNNodeKind.NONE;
         ISVNEditor editor;
@@ -110,7 +110,7 @@ public class SubversionSubmitter
             for (int i = 0; i < dirs.length; i++)
             	if (dirs[i] != null && dirs[i].length() > 0)
 	            {
-	            	curPath += "/" + dirs[i]; 
+	            	curPath += "/" + dirs[i];
 	            	editor.openDir(curPath, -1);
 	            }
         	logger.info("Creating file " + filePath);
@@ -127,7 +127,7 @@ public class SubversionSubmitter
         		complete.update(data, 0, data.length);
         		byte[] checkSumBytes= complete.digest();
         		String checkSum = "";
-        	     for (int i=0; i < checkSumBytes.length; i++) 
+        	     for (int i=0; i < checkSumBytes.length; i++)
         	    	checkSum +=
         	          Integer.toString( ( checkSumBytes[i] & 0xff ) + 0x100, 16).substring( 1 );
         	     logger.fine("Remote MD5: " + remoteChecksum);
@@ -147,10 +147,10 @@ public class SubversionSubmitter
             for (int i = 0; i < dirs.length; i++)
             	if (dirs[i] != null && dirs[i].length() > 0)
 	            {
-	            	curPath += "/" + dirs[i]; 
+	            	curPath += "/" + dirs[i];
 	            	editor.openDir(curPath, -1);
 	            }
-	        editor.openFile(filePath, -1);		        
+	        editor.openFile(filePath, -1);
         }
         editor.applyTextDelta(filePath, null);
         SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
@@ -159,14 +159,14 @@ public class SubversionSubmitter
         editor.closeDir();
         editor.closeEdit();
     }
-    
-    static boolean fileExistsInRepository( SVNRepository repository, 
+
+    static boolean fileExistsInRepository( SVNRepository repository,
 			String filePath) throws SVNException
     {
     	SVNNodeKind nodeKind = repository.checkPath( filePath, -1);
-        if (nodeKind == SVNNodeKind.DIR) 
+        if (nodeKind == SVNNodeKind.DIR)
             throw new SVNException(SVNErrorMessage.create(SVNErrorCode.UNKNOWN, "Entry at URL ''{0}'' is a directory while a file was expected", filePath));
-       return nodeKind == SVNNodeKind.FILE;            	
+       return nodeKind == SVNNodeKind.FILE;
     }
 
     static interface AuthManagerMapper
@@ -177,12 +177,12 @@ public class SubversionSubmitter
     {
     	HashMap<String, ISVNAuthenticationManager> map = new HashMap<String, ISVNAuthenticationManager>();
     	ISVNAuthenticationManager defaultCredentials;
-    	
+
     	public ISVNAuthenticationManager getAuthManager( String userName)
     	{
     		if (userName == null)
     			return defaultCredentials ;
-    		ISVNAuthenticationManager m = map.get(userName.trim()); 
+    		ISVNAuthenticationManager m = map.get(userName.trim());
     		return  m == null? defaultCredentials : m;
     	}
     	void addCredentials( String pToolUserName, String svnUserName, String svnPassword)
@@ -194,20 +194,20 @@ public class SubversionSubmitter
     			map.put(pToolUserName.trim(), m);
     	}
     }
-    
+
     public static class SubversionContainerProcessor extends ContainerProcessor implements VersionControlSystem
 	{
-    	
+
 		SVNRepository repository;
 		String basePath;
 		PToolsObjectToFileMapper mapper;
 		PeopleCodeParser parser = new PeopleCodeParser();
 		AuthManagerMapper authMapper;
 		ContainerProcessor ancestor = null;
-		
-		SubversionContainerProcessor( SVNURL url, 
-				String _basePath, 
-				PToolsObjectToFileMapper _mapper, 
+
+		SubversionContainerProcessor( SVNURL url,
+				String _basePath,
+				PToolsObjectToFileMapper _mapper,
 				AuthManagerMapper _authMapper) throws SVNException
 		{
 			repository = SVNRepositoryFactory.create(url);
@@ -218,7 +218,7 @@ public class SubversionSubmitter
 				System.out.println("Submitting PeopleCode and SQL definitions to " + url + basePath);
 		}
 
-		public void process(decodepcode.PeopleCodeObject c) throws IOException 
+		public void process(decodepcode.PeopleCodeObject c) throws IOException
 		{
 			if (basePath == null)
 				return;
@@ -242,17 +242,17 @@ public class SubversionSubmitter
 					if (getJDBCconnection().equals(((JDBCPeopleCodeContainer) c).getOriginatingConnection()))
 						comment = "Saved at " + ProjectReader.df2.format(c.getLastChangedDtTm()) + " by " + c.getLastChangedBy();
 					else
-						comment = "Version in " + ((JDBCPeopleCodeContainer) c).getSource() + " retrieved on " + ProjectReader.df3.format(new Date()); 
+						comment = "Version in " + ((JDBCPeopleCodeContainer) c).getSource() + " retrieved on " + ProjectReader.df3.format(new Date());
 				addFile(repository, path, comment, w.toString().getBytes() );
 			} catch (SVNException se)
 			{
 				IOException e = new IOException("Error submitting pcode to Subversion");
 				e.initCause(se);
-				throw e; 				
+				throw e;
 			}
 		}
 
-		public void processSQL(SQLobject sql) throws IOException 
+		public void processSQL(SQLobject sql) throws IOException
 		{
 			if (basePath == null)
 				return;
@@ -265,23 +265,23 @@ public class SubversionSubmitter
 					repository.setAuthenticationManager(user);
 				}
 				if (sql.getLastChangedDtTm() != null && sql.getLastChangedBy() != null)
-				addFile(repository, path, 
-					"Saved at " + ProjectReader.df2.format(sql.getLastChangedDtTm()) + " by " + sql.getLastChangedBy(), 
+				addFile(repository, path,
+					"Saved at " + ProjectReader.df2.format(sql.getLastChangedDtTm()) + " by " + sql.getLastChangedBy(),
 					sql.getSql().getBytes());
 			} catch (SVNException se)
 			{
 				IOException e = new IOException("Error submitting pcode to Subversion");
 				e.initCause(se);
-				throw e; 				
+				throw e;
 			}
 		}
-		
+
 		@Override
 		public void processCONT(CONTobject cont) throws IOException {
 			if (basePath == null)
 				return;
 			String path = basePath + mapper.getPathForCONT(cont, false);
-			
+
 			try {
 				ISVNAuthenticationManager user = authMapper.getAuthManager(cont.getLastChangedBy());
 				if (user != null) {
@@ -289,8 +289,8 @@ public class SubversionSubmitter
 					repository.setAuthenticationManager(user);
 				}
 				if (cont.getLastChangedDtTm() != null && cont.getLastChangedBy() != null)
-					addFile(repository, path, 
-							"Saved at " + ProjectReader.df2.format(cont.getLastChangedDtTm()) + " by " + cont.getLastChangedBy(), 
+					addFile(repository, path,
+							"Saved at " + ProjectReader.df2.format(cont.getLastChangedDtTm()) + " by " + cont.getLastChangedBy(),
 							cont.getContDataBytes()
 						);
 			} catch (SVNException se) {
@@ -298,13 +298,13 @@ public class SubversionSubmitter
 				e.initCause(se);
 				throw e;
 			}
-			
+
 		}
 
 		@Override
 		public void aboutToProcess() {
 			if (basePath != null)
-				System.out.println("Submitting to SVN, base path = " + basePath);			
+				System.out.println("Submitting to SVN, base path = " + basePath);
 		}
 
 		public ContainerProcessor getAncestor() {
@@ -319,7 +319,7 @@ public class SubversionSubmitter
 			{
 				IOException se = new IOException("Error determining if file exists in Subversion");
 				se.initCause(ex);
-				throw se; 								
+				throw se;
 			}
 		}
 
@@ -328,11 +328,11 @@ public class SubversionSubmitter
 			ancestor = _ancestor;
 		}
 	}
-	
+
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args) 
+	public static void main(String[] args)
 	{
 		try {
 			ISVNAuthenticationManager m = SVNWCUtil.createDefaultAuthenticationManager("harry", "secret");
@@ -345,12 +345,12 @@ public class SubversionSubmitter
 			authMapper.addCredentials("PPLTOOLS" , "harry", "secret");
 			authMapper.addCredentials("VP1", "sally", "secret");
 			SubversionContainerProcessor processor = new SubversionContainerProcessor(
-					SVNURL.parseURIEncoded("svn://192.168.1.4/project1"), 
-					"/trunk/PeopleCode", 
-					new DirTreePTmapper(), 
+					SVNURL.parseURIEncoded("svn://192.168.1.4/project1"),
+					"/trunk/PeopleCode",
+					new DirTreePTmapper(),
 					authMapper);
 			logger.info("Starting to commit to Subversion");
-			
+
 			SimpleDateFormat sd = new SimpleDateFormat("yyyy/MM/dd");
 			java.util.Date time = sd.parse("2010/06/01");
 			java.sql.Timestamp d = new java.sql.Timestamp(time.getTime());
@@ -361,13 +361,13 @@ public class SubversionSubmitter
 			List<ContainerProcessor> processors = new ArrayList<ContainerProcessor>();
 			processors.add(processor);
 			decodepcode.Controller.processProject("TEST2", processors);
-			logger.info("Finished");		
+			logger.info("Finished");
 			*/
 
-				
+
 			} catch (Exception e) {
 				e.printStackTrace();
-			} 
+			}
 	}
 
 	public static void setUpSVNKit()
@@ -380,16 +380,14 @@ public class SubversionSubmitter
          * For using over svn:// and svn+xxx://
          */
         SVNRepositoryFactoryImpl.setup();
-        
+
         /*
          * For using over file:///
          */
         FSRepositoryFactory.setup();
-
-	
 	}
-	
-	static 
+
+	static
 	{
 		setUpSVNKit();
 	}

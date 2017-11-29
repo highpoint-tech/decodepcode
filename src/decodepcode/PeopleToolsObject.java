@@ -2,7 +2,7 @@ package decodepcode;
 
 import java.util.Date;
 
-public interface PeopleToolsObject 
+public interface PeopleToolsObject
 {
 	public String[] getKeys();
 	public int[] getKeyTypes();

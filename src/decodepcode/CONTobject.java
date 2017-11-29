@@ -8,14 +8,12 @@ import java.util.List;
 
 public class CONTobject implements PeopleToolsObject {
 
-	
 	String contName, contFmt, lastChangedBy;
 	int altContNum, contType, compAlg, seqNo;
 	Date lastChanged;
 	String languageCd;
 	List<byte[]> contDataArrays = new ArrayList<byte[]>();
-	
-	
+
 	public CONTobject(String contName, String contFmt, String lastChangedBy, int altContNum, int contType, int compAlg, int seqNo,
 			String languageCd, Date lastChanged) {
 		super();
@@ -29,9 +27,9 @@ public class CONTobject implements PeopleToolsObject {
 		this.languageCd = languageCd;
 		this.lastChanged = lastChanged;
 	}
-	
+
 	public void addToContDataArrays(int seqNo, byte[] contDataBytes) throws IOException {
-		this.seqNo = seqNo;		
+		this.seqNo = seqNo;
 		if (contType == 4){
 			String contData = new String(contDataBytes, "UnicodeLittleUnmarked");
 			contDataArrays.add(contData.getBytes());
@@ -39,16 +37,16 @@ public class CONTobject implements PeopleToolsObject {
 			contDataArrays.add(contDataBytes);
 		}
 	}
-	
+
 	public byte[] getContDataBytes() {
 		ByteArrayOutputStream os = new ByteArrayOutputStream();
 		for (byte[] b : contDataArrays) {
 			os.write(b, 0, b.length);
 		}
 	 	return os.toByteArray();
-		
+
 	}
-	
+
 	public String[] getKeys() {
 		// TODO Auto-generated method stub
 		return null;

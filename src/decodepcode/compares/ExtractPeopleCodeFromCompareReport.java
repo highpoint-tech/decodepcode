@@ -38,9 +38,7 @@ import decodepcode.DirTreePTmapper;
 import decodepcode.PToolsObjectToFileMapper;
 import decodepcode.PeopleCodeObject;
 
-
-
-public class ExtractPeopleCodeFromCompareReport 
+public class ExtractPeopleCodeFromCompareReport
 {
 	static Logger logger = Logger.getLogger(ExtractPeopleCodeFromCompareReport.class.getName());
 	public final static String eol = System.getProperty("line.separator"),
@@ -49,8 +47,8 @@ public class ExtractPeopleCodeFromCompareReport
 		PROCESS_SOURCE_PCODE = 0,
 		PROCESS_TARGET_PCODE = 1,
 		SET_LINKS_IN_XML = 2;
-	final static String[] modeStr = { "process 'source' PeopleCode", "process 'target' PeopleCode", "set pcode links"}; 
-	
+	final static String[] modeStr = { "process 'source' PeopleCode", "process 'target' PeopleCode", "set pcode links"};
+
 	private static HashMap<String,String> htmlEntities;
 	  static {
 	    htmlEntities = new HashMap<String,String>();
@@ -78,7 +76,7 @@ public class ExtractPeopleCodeFromCompareReport
 	    htmlEntities.put("&reg;","\u00ae");
 	    htmlEntities.put("&euro;","\u20a0");
 	  }
-	  
+
 	  public static final String unescapeHTML(String source) {
 	      int i, j;
 
@@ -107,7 +105,7 @@ public class ExtractPeopleCodeFromCompareReport
 	      return source;
 	  }
 
-	public class PeopleCodeSegment implements PeopleCodeObject 
+	public class PeopleCodeSegment implements PeopleCodeObject
 	{
 		ArrayList<String> keys = new ArrayList<String>();
 		StringWriter peopleCode= new StringWriter();;
@@ -120,7 +118,7 @@ public class ExtractPeopleCodeFromCompareReport
 			return w.toString().trim();
 		}
 		void addKey( String k)
-		{ 
+		{
 			keys.add(k);
 		}
 		void addPeoplCodeLine(String l)
@@ -131,7 +129,7 @@ public class ExtractPeopleCodeFromCompareReport
 		}
 		public String toString()
 		{
-			return "PeopleCode for " + getCompositeKey() + ": " + eol + peopleCode; 
+			return "PeopleCode for " + getCompositeKey() + ": " + eol + peopleCode;
 		}
 		public String[] getKeys() {
 			return (String[]) keys.toArray(new String[7]);
@@ -170,19 +168,19 @@ public class ExtractPeopleCodeFromCompareReport
 	String[] pcodeTreeURLs;
 	String[] pcodeTreeNames;
 	PToolsObjectToFileMapper[] mappers;
-	
-	
+
+
 	public ExtractPeopleCodeFromCompareReport() throws ParserConfigurationException
 	{
 		docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 	}
-	
+
 	static String getAttribute( Node n, String attrName)
 	{
 		if (n == null || attrName == null)
 			return null;
-		NamedNodeMap attrs = n.getAttributes();  
-	    for(int i3 = 0 ; i3 < attrs.getLength() ; i3++) 
+		NamedNodeMap attrs = n.getAttributes();
+	    for(int i3 = 0 ; i3 < attrs.getLength() ; i3++)
 	    {
 	        Attr attribute = (Attr) attrs.item(i3);
 	        if (attrName.equals(attribute.getName()))
@@ -190,11 +188,11 @@ public class ExtractPeopleCodeFromCompareReport
 	    }
 		return null;
 	}
-	
+
 	private void visit(Node node, int level)
 	{
 //		logger.info("Level = " + level + ", node = " + node.getNodeName());
-		NodeList nl = node.getChildNodes();		
+		NodeList nl = node.getChildNodes();
 		Node firstAttribute = null;
 		for(int i=0, cnt=nl.getLength(); i<cnt; i++)
 		{
@@ -213,7 +211,7 @@ public class ExtractPeopleCodeFromCompareReport
 				else
 					if (level == 4 && n.getNodeType() == Node.ELEMENT_NODE && "attribute".equals(((Element) n).getNodeName()))
 					{
-						if (firstAttribute == null)	
+						if (firstAttribute == null)
 							firstAttribute = n;
 					}
 					else
@@ -224,7 +222,7 @@ public class ExtractPeopleCodeFromCompareReport
 							segment.addPeoplCodeLine(unescapeHTML(n.getTextContent()));
 			//  <attribute diff="targetonly" name="">
 
-			if (level != 4 || (n.getNodeType() != Node.ELEMENT_NODE) 
+			if (level != 4 || (n.getNodeType() != Node.ELEMENT_NODE)
 					|| !("attribute").equals(((Element) n).getNodeName())
 					|| "same".equals(((Element) n).getAttribute("diff"))
 					|| ("sourceonly".equals(((Element) n).getAttribute("diff")) && mode == PROCESS_SOURCE_PCODE)
@@ -238,7 +236,7 @@ public class ExtractPeopleCodeFromCompareReport
 						{
 //							PToolsObjectToFileMapper mapper = ((Controller.WriteDecodedPPCtoDirectoryTree) processor).getMapper();
 							Element n2 = null;
-							NodeList nl2 = n.getChildNodes();		
+							NodeList nl2 = n.getChildNodes();
 							for(int i2=0, cnt2=nl2.getLength(); i2<cnt2; i2++)
 							{
 								Node n0 = nl2.item(i2);
@@ -247,9 +245,9 @@ public class ExtractPeopleCodeFromCompareReport
 								if (n0.getNodeName() == "secondary_key")
 								{
 									NodeList nl3 = n0.getChildNodes();
-									for (int i3=0, cnt3=nl3.getLength(); i3<cnt3; i3++)									
+									for (int i3=0, cnt3=nl3.getLength(); i3<cnt3; i3++)
 										if (nl3.item(i3).getNodeType() == Node.ELEMENT_NODE)
-										{										
+										{
 											if ("pcode".equals(getAttribute( nl3.item(i3), "name")))
 												n2 = (Element) nl3.item(i3);
 										}
@@ -264,7 +262,7 @@ public class ExtractPeopleCodeFromCompareReport
 							}
 							if (n2 == null)
 								throw new IllegalArgumentException("?? cannot find or create 'pcode' node");
-							NodeList nl2b = n2.getChildNodes();		
+							NodeList nl2b = n2.getChildNodes();
 							while (nl2b.getLength()> 0)
 							{
 								Node n0 = nl2b.item(0);
@@ -291,7 +289,7 @@ public class ExtractPeopleCodeFromCompareReport
 										{
 											n3 = d.createElement(pcodeTreeNames[t]);
 											n3.setTextContent(u.toString());
-											logger.fine("Absolute url = "+ u);											
+											logger.fine("Absolute url = "+ u);
 										}
 										File h = mappers[t].getFile(segment, "hover");
 										if (h.exists())
@@ -307,7 +305,7 @@ public class ExtractPeopleCodeFromCompareReport
 											br.close();
 											n3.setAttribute("hover", w.toString());
 										}
-										n2.appendChild(n3);										
+										n2.appendChild(n3);
 									}
 									File f2 = mappers[t].getFile(segment, "difftxt");
 									if (f2.exists())
@@ -327,48 +325,48 @@ public class ExtractPeopleCodeFromCompareReport
 										{
 											n3 = d.createElement(pcodeTreeNames[t]);
 											n3.setTextContent(u.toString());
-											logger.fine("Absolute url = "+ u);											
+											logger.fine("Absolute url = "+ u);
 										}
-										n2.appendChild(n3);										
+										n2.appendChild(n3);
 									}
 								}
 						}
-						
+
 					} catch (MalformedURLException e) {
 						logger.severe("??? "+ e);
 					}
 					catch (IOException e) {
 						logger.severe("??? "+ e);
 					}
-					
-				}				
+
+				}
 		}
 	}
-	
+
 	static int nameToType( String name)
 	{
 		if (name.startsWith("Application Engine PeopleCode"))
 			return 43;
 		if (name.startsWith("Application Package PeopleCode"))
-			return 58;		
+			return 58;
 		if (name.startsWith("Component PeopleCode"))
 			return 46;
 		if (name.startsWith("Comp. Interface PeopleCode"))
-			return 42;		
+			return 42;
 		if (name.startsWith("Component Rec Fld PeopleCode"))
 			return 48;
 		if (name.startsWith("Component Record PeopleCode"))
-			return 47;		
+			return 47;
 		if (name.startsWith("Page PeopleCode"))
-			return 44;		
+			return 44;
 		if (name.startsWith("Record PeopleCode"))
-			return 8;		
+			return 8;
 		if (name.startsWith("Subscription PeopleCode"))
-			return 40;		
+			return 40;
 		return -1;
 	}
-	
-	public void processPeopleCodeFromFile( File _xml, ContainerProcessor _processor,  int _mode) 
+
+	public void processPeopleCodeFromFile( File _xml, ContainerProcessor _processor,  int _mode)
 			throws SAXException, IOException, ParserConfigurationException, TransformerException
 	{
 		xml = _xml;
@@ -389,32 +387,32 @@ public class ExtractPeopleCodeFromCompareReport
 			TransformerFactory tf = TransformerFactory.newInstance();
 			Transformer t = tf.newTransformer();
 			DOMSource s = new DOMSource(d);
-			StreamResult sr1 = new StreamResult(xml);  
-			t.transform(s,sr1);				
+			StreamResult sr1 = new StreamResult(xml);
+			t.transform(s,sr1);
 		}
 		else
 			for (PeopleCodeSegment segment: list)
 				processor.process(segment);
 	}
 
-	public void processPeopleCodeFromTree( File compareDir, ContainerProcessor processor, 
+	public void processPeopleCodeFromTree( File compareDir, ContainerProcessor processor,
 			int _mode)
 				throws SAXException, IOException, ParserConfigurationException, TransformerException
 	{
 		processPeopleCodeFromTree(compareDir, processor, _mode, (PToolsObjectToFileMapper[]) null);
 	}
-	
-	public void processPeopleCodeFromTree( File compareDir, ContainerProcessor processor, 
+
+	public void processPeopleCodeFromTree( File compareDir, ContainerProcessor processor,
 			int _mode, PToolsObjectToFileMapper[] _mappers)
 				throws SAXException, IOException, ParserConfigurationException, TransformerException
 	{
 		if (_mode == SET_LINKS_IN_XML)
 			if (_mappers != null)
 				mappers = _mappers;
-			else				
+			else
 			{
 				File topDir = new File(compareDir, PEOPLECODETREE);
-				pcodeTreeNames = topDir.list( new FilenameFilter() {				
+				pcodeTreeNames = topDir.list( new FilenameFilter() {
 					public boolean accept(File arg0, String arg1) {
 						return new File(arg0, arg1).isDirectory();
 					}
@@ -432,20 +430,20 @@ public class ExtractPeopleCodeFromCompareReport
 					}
 				}
 			}
-		
-		
+
+
 		processor.aboutToProcess();
 		if (!(compareDir.exists() && compareDir.isDirectory()))
 			throw new IllegalArgumentException("Expected top directory of compare reports; got "  + compareDir);
-		for (String folder: compareDir.list(new FilenameFilter() {			
-			public boolean accept(File dir, String name) {				
+		for (String folder: compareDir.list(new FilenameFilter() {
+			public boolean accept(File dir, String name) {
 				return new File(dir, name).isDirectory() && name.contains("PeopleCode");
 			}
 		}))
 		{
 			File folderDir = new File(compareDir, folder);
 			logger.fine("Going into directory "+ folderDir.getAbsolutePath());
-			for (String xmlFileName: folderDir.list(new FilenameFilter() {				
+			for (String xmlFileName: folderDir.list(new FilenameFilter() {
 				public boolean accept(File dir, String name) {
 					return name.contains("PeopleCode") && name.endsWith(".xml");
 				}
@@ -454,31 +452,29 @@ public class ExtractPeopleCodeFromCompareReport
 		}
 		processor.finishedProcessing();
 	}
-	
-	public static void writeProjectDef( File compareDir, File outFile) 
+
+	public static void writeProjectDef( File compareDir, File outFile)
 		throws SAXException, IOException, ParserConfigurationException, TransformerException
 	{
 		new ExtractPeopleCodeFromCompareReport().
 			processPeopleCodeFromTree(compareDir,
 						new CreateProjectDefProcessor(outFile, true), PROCESS_SOURCE_PCODE);
 	}
-	
-	public static void writeSourceAndTargetInSubtree( File compareDir, String sourceName, String targetName) 
+
+	public static void writeSourceAndTargetInSubtree( File compareDir, String sourceName, String targetName)
 						throws SAXException, IOException, ParserConfigurationException, TransformerException
 	{
 		new ExtractPeopleCodeFromCompareReport().
 		processPeopleCodeFromTree(compareDir,
-				new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\" + sourceName)), 
+				new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\" + sourceName)),
 				PROCESS_SOURCE_PCODE);
 
-	new ExtractPeopleCodeFromCompareReport().
-		processPeopleCodeFromTree(compareDir,
-				new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\" + targetName)), 
-				PROCESS_TARGET_PCODE);
-		
+		new ExtractPeopleCodeFromCompareReport().
+			processPeopleCodeFromTree(compareDir,
+					new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\" + targetName)),
+					PROCESS_TARGET_PCODE);
 	}
 
-	
 	/**
 	 * @param args
 	 */
@@ -490,24 +486,23 @@ public class ExtractPeopleCodeFromCompareReport
 
 			new ExtractPeopleCodeFromCompareReport().
 				processPeopleCodeFromTree(compareDir,
-						new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\PSNEW89")), 
+						new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\PSNEW89")),
 						PROCESS_SOURCE_PCODE);
 
 			new ExtractPeopleCodeFromCompareReport().
 				processPeopleCodeFromTree(compareDir,
-						new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\PSVAN91")), 
+						new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\PSVAN91")),
 						PROCESS_TARGET_PCODE);
-	
+
 			new ExtractPeopleCodeFromCompareReport().
 			processPeopleCodeFromTree(compareDir,
-					new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\DUMMY")), 
+					new Controller.WriteDecodedPPCtoDirectoryTree(new File(compareDir, PEOPLECODETREE+ "\\DUMMY")),
 					SET_LINKS_IN_XML);
 
-					
+
 		} catch (Exception e) {
 			e.printStackTrace();
-		} 
+		}
 		logger.info("Ready");
 	}
-
 }

@@ -10,18 +10,18 @@ import java.io.StringWriter;
 import java.util.Date;
 import java.util.logging.Logger;
 
-public abstract class PeopleCodeContainer implements PeopleCodeObject 
+public abstract class PeopleCodeContainer implements PeopleCodeObject
 {
 	int pos;
 	byte[] bytes;
 	String lastChangedBy, source;
 	Date lastChangedDtTm;
-	
-	public boolean hasPlainPeopleCode() 
-	{ 
-		return peopleCodeText != null; 
-	}  
-	abstract String getReference( int nameNum); 
+
+	public boolean hasPlainPeopleCode()
+	{
+		return peopleCodeText != null;
+	}
+	abstract String getReference( int nameNum);
 	byte read() { return bytes[pos]; }
 	byte get()  { return bytes[pos++]; }
 	byte readAhead()
@@ -33,11 +33,11 @@ public abstract class PeopleCodeContainer implements PeopleCodeObject
 	}
 	String peopleCodeText;
 	Logger logger = Logger.getLogger(getClass().getName());
-	
+
 	public abstract String getCompositeKey();
 	public abstract String[] getKeys();
 	public abstract int getPeopleCodeType();
-	
+
 	void writeBytesToStream( OutputStream os) throws IOException
 	{
 		os.write(bytes);
@@ -50,27 +50,29 @@ public abstract class PeopleCodeContainer implements PeopleCodeObject
 		fo.close();
 	}
 	abstract void writeReferencesInDirectory( File f) throws IOException;
-	
+
 	void writeInDirectory(File f) throws IOException
 	{
-		if (!f.isDirectory()) 
+		if (!f.isDirectory())
 			throw new IllegalArgumentException(""+ f + " is not a directory");
 		File binFile = new File(f, getCompositeKey() + ".bin");
 		if (binFile.exists())
 			logger.warning("Overwriting " + binFile);
 		writeBytesToFile(binFile);
 		writeReferencesInDirectory( f);
-	}	
-	public String getPeopleCodeText() 
+	}
+	public String getPeopleCodeText()
 	{
 		if (peopleCodeText == null)
 			throw new IllegalArgumentException("Text PeopleCode has not been set");
 		return peopleCodeText;
 	}
-	public void setPeopleCodeText(String _PeopleCodeText) 
+
+	public void setPeopleCodeText(String _PeopleCodeText)
 	{
 		this.peopleCodeText = _PeopleCodeText;
 	}
+
 	public void readPeopleCodeTextFromFile( File f) throws IOException
 	{
 		StringWriter sw = new StringWriter();
@@ -84,7 +86,7 @@ public abstract class PeopleCodeContainer implements PeopleCodeObject
 		br.close();
 		setPeopleCodeText(sw.toString());
 	}
-	
+
 	public static String objectTypeStr( int objType)
 	{
 		switch (objType) {
@@ -98,12 +100,14 @@ public abstract class PeopleCodeContainer implements PeopleCodeObject
 		     case  46 : return "Component_PeopleCode";
 		     case  47 : return "Component_Record_PeopleCode";
 		     case  48 : return "Component_Record_Field_PeopleCode";
-		     case  58 : return "App_Package_PeopleCode";		     
+		     case  58 : return "App_Package_PeopleCode";
 			default :
 				return "objecttype_" + objType ;
 		}
 	}
+
 	final static int[] objTypes={ 8 , 9 , 39 , 40 , 42 , 43 , 44 , 46 , 47 , 48 , 58} ;
+
 	public static int objectTypeFromString( String s)
 	{
 		if (s == null) return -1;
@@ -111,24 +115,29 @@ public abstract class PeopleCodeContainer implements PeopleCodeObject
 			if (s.equals(objectTypeStr(i)))
 					return i;
 		return -1;
-		
+
 	}
 
 	public String getLastChangedBy() {
 		return lastChangedBy;
 	}
+
 	public void setLastChangedBy(String lastChangedBy) {
 		this.lastChangedBy = lastChangedBy;
 	}
+
 	public Date getLastChangedDtTm() {
 		return lastChangedDtTm;
 	}
+
 	public void setLastChangedDtTm(Date lastChangedDtTm) {
 		this.lastChangedDtTm = lastChangedDtTm;
 	}
+
 	public String getSource() {
 		return source;
 	}
+
 	public void setSource(String source) {
 		this.source = source;
 	}

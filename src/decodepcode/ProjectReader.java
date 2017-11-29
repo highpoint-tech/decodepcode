@@ -42,9 +42,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
 
-public class ProjectReader 
+public class ProjectReader
 {
-
 	static Logger logger = Logger.getLogger( ProjectReader.class.getName() );
 	final static String eol=System.getProperty("line.separator");
 	private PeopleToolsProject project;
@@ -53,16 +52,16 @@ public class ProjectReader
 	ProjectPeopleCodeContainer container = new ProjectPeopleCodeContainer();
 	SQLobject sqlObject;
 	ContainerProcessor processor;
-	
+
 	static class PeopleToolsProject
 	{
 	}
-		
-	public static SimpleDateFormat 
+
+	public static SimpleDateFormat
 		df  = new SimpleDateFormat("yyyy-MM-dd-HH.mm.ss.000000"), //2006-10-24-15.42.43.000000
-		df2 = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss"), 
+		df2 = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss"),
 		df3 = new SimpleDateFormat("yyyy-MM-dd");
-	
+
 	static String formatEOLchars(String in) throws IOException
 	{
 		StringWriter w = new StringWriter();
@@ -75,7 +74,7 @@ public class ProjectReader
 		}
 		return w.toString();
 	}
-	
+
 	private void visit(Node node, int level) throws IOException
 	{
 		logger.fine("Level = " + level + ", node = '" + node.getNodeName() + "'");
@@ -113,7 +112,7 @@ public class ProjectReader
 			{
 					sqlType = n.getTextContent();
 			}
-			
+
 			if (n.getNodeType() == Node.ELEMENT_NODE && n.getNodeName().equals("szMarket"))
 				sqlMarket = n.getTextContent();
 			if (n.getNodeType() == Node.ELEMENT_NODE && n.getNodeName().equals("cDbType"))
@@ -123,9 +122,9 @@ public class ProjectReader
 					sqlDbType = " ";
 				sqlDbType = Controller.dbTypeXLAT(sqlDbType);
 			}
-	 
-			if ((n.getNodeType() == Node.ELEMENT_NODE) 
-					&& (   "peoplecode_text".equals(((Element) n).getNodeName()) ))				
+
+			if ((n.getNodeType() == Node.ELEMENT_NODE)
+					&& (   "peoplecode_text".equals(((Element) n).getNodeName()) ))
 			{
 				String key = container.getKeyFromObjectValues();
 				logger.fine("============== level = " + level + " key = '" + key + "'\n");
@@ -136,10 +135,10 @@ public class ProjectReader
 				processor.process(container);
 				Controller.countPPC++;
 				lastUpdOprid = null;
-				timeStamp = null;				
+				timeStamp = null;
 			}
-			
-			if ("lpszSqlText".equals(n.getNodeName()) && level == 9)				
+
+			if ("lpszSqlText".equals(n.getNodeName()) && level == 9)
 			{
 				String key = container.getKeyFromObjectValues();
 				logger.fine("==== lpszSqlText ========= level = " + level + " key = '" + key + "'");
@@ -157,8 +156,8 @@ public class ProjectReader
 
 	/**
 	 * Read the .xml project file, which is not a valid XML file because it has more than one root element.
-	 * For this reason, read the project file line for line, create a temporary XML file for each <instance> block, 
-	 * and process that file. 
+	 * For this reason, read the project file line for line, create a temporary XML file for each <instance> block,
+	 * and process that file.
 	 */
 	public PeopleToolsProject readProject( File file) throws IOException, SAXException, ParserConfigurationException
 	{
@@ -201,111 +200,115 @@ public class ProjectReader
 		br.close();
 		return project;
 	}
-	
-	
-static class ProjectPeopleCodeContainer extends PeopleCodeContainer
-{
-	int objectIDs[] = new int[7];
-	int objectType= -1;
-	String objectValue[] = new String[7];
-	String peopleCode, sql;
-	
-	@Override
-	public String getCompositeKey() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	private String getKeyFromObjectValues()
+
+	static class ProjectPeopleCodeContainer extends PeopleCodeContainer
 	{
-		String key = null;
-		objectType = JDBCPeopleCodeContainer.getObjectType(objectIDs);
-		if (objectType >= 0)
-			key = JDBCPeopleCodeContainer.objectTypeStr(objectType);
-		for (String s: objectValue)
-		{
-			String k = s == null? "NULL" : s.trim();
-			if (k.length() > 0)
-				key = key==null? k: key + "-"+ k;
+		int objectIDs[] = new int[7];
+		int objectType= -1;
+		String objectValue[] = new String[7];
+		String peopleCode, sql;
+
+		@Override
+		public String getCompositeKey() {
+			// TODO Auto-generated method stub
+			return null;
 		}
-		key = key.substring(0, key.length());
-		return key;
-	}
-
-
-	@Override
-	String getReference(int nameNum) {
-		throw new IllegalArgumentException("Not implemented");		
-	}
-
-	@Override
-	void writeReferencesInDirectory(File f) throws IOException {
-		throw new IOException("Not implemented");		
-	}
-
-	@Override
-	public String[] getKeys() {
-		return objectValue;
-	}
-	@Override
-	public int getPeopleCodeType() {
-		return JDBCPeopleCodeContainer.getObjectType(objectIDs);
-	}
-	public String getPeopleCode() {
-		return peopleCode;
-	}
-	public void setPeopleCode(String peopleCode) {
-		this.peopleCode = peopleCode;
-	}
-	public String getSql() {
-		return sql;
-	}
-	public void setSql(String sql) {
-		this.sql = sql;
-	}
-	public int[] getKeyTypes() {
-		return objectIDs;
-	}	
-}
-
-/**
- * @param args PeopleTools project (.xml)
- */
-public static void main(String[] args) {
-	try {
-		ProjectReader p = new ProjectReader();
-		if (args.length > 0)
+		private String getKeyFromObjectValues()
 		{
-			String xmlFile = args[0];
-			if (!xmlFile.toLowerCase().endsWith(".xml"))
+			String key = null;
+			objectType = JDBCPeopleCodeContainer.getObjectType(objectIDs);
+			if (objectType >= 0)
+				key = JDBCPeopleCodeContainer.objectTypeStr(objectType);
+			for (String s: objectValue)
 			{
-				logger.severe("Expected .xml project file for argument, but got " + xmlFile);
-				return;
+				String k = s == null? "NULL" : s.trim();
+				if (k.length() > 0)
+					key = key==null? k: key + "-"+ k;
 			}
-			String fileName = new File(xmlFile).getName();
-			String projName = fileName.substring(0, fileName.length() - 4);
-			File dir = new File(".", projName);
-			ContainerProcessor processor = new WriteDecodedPPCtoDirectoryTree(new DirTreePTmapper( dir), "pcode");
-			processor.aboutToProcess();
-			p.setProcessor(processor);
-			dir.mkdir();
-			System.out.println("Output in " + dir.getAbsolutePath() );
-			p.readProject( new File(xmlFile));
-			processor.finishedProcessing();
-			Controller.writeStats();
+			key = key.substring(0, key.length());
+			return key;
 		}
-		else
-		{
-			System.out.println("Usage: java peoplecode.decoder.ProjectReader yourproject.xml");
-			System.out.println("This will read this PeopleTools project and create a folder structure with the same name in the current directory");
+
+
+		@Override
+		String getReference(int nameNum) {
+			throw new IllegalArgumentException("Not implemented");
+		}
+
+		@Override
+		void writeReferencesInDirectory(File f) throws IOException {
+			throw new IOException("Not implemented");
+		}
+
+		@Override
+		public String[] getKeys() {
+			return objectValue;
+		}
+
+		@Override
+		public int getPeopleCodeType() {
+			return JDBCPeopleCodeContainer.getObjectType(objectIDs);
+		}
+
+		public String getPeopleCode() {
+			return peopleCode;
+		}
+
+		public void setPeopleCode(String peopleCode) {
+			this.peopleCode = peopleCode;
+		}
+
+		public String getSql() {
+			return sql;
+		}
+
+		public void setSql(String sql) {
+			this.sql = sql;
+		}
+
+		public int[] getKeyTypes() {
+			return objectIDs;
 		}
 	}
-	catch (Throwable e) {
-		e.printStackTrace();
+
+	/**
+	 * @param args PeopleTools project (.xml)
+	 */
+	public static void main(String[] args) {
+		try {
+			ProjectReader p = new ProjectReader();
+			if (args.length > 0)
+			{
+				String xmlFile = args[0];
+				if (!xmlFile.toLowerCase().endsWith(".xml"))
+				{
+					logger.severe("Expected .xml project file for argument, but got " + xmlFile);
+					return;
+				}
+				String fileName = new File(xmlFile).getName();
+				String projName = fileName.substring(0, fileName.length() - 4);
+				File dir = new File(".", projName);
+				ContainerProcessor processor = new WriteDecodedPPCtoDirectoryTree(new DirTreePTmapper( dir), "pcode");
+				processor.aboutToProcess();
+				p.setProcessor(processor);
+				dir.mkdir();
+				System.out.println("Output in " + dir.getAbsolutePath() );
+				p.readProject( new File(xmlFile));
+				processor.finishedProcessing();
+				Controller.writeStats();
+			}
+			else
+			{
+				System.out.println("Usage: java peoplecode.decoder.ProjectReader yourproject.xml");
+				System.out.println("This will read this PeopleTools project and create a folder structure with the same name in the current directory");
+			}
+		}
+		catch (Throwable e) {
+			e.printStackTrace();
+		}
 	}
-}
 
-public void setProcessor(ContainerProcessor processor) {
-	this.processor = processor;
-}	
-
+	public void setProcessor(ContainerProcessor processor) {
+		this.processor = processor;
+	}
 }

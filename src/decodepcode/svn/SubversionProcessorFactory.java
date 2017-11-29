@@ -12,15 +12,15 @@ import decodepcode.DirTreePTmapper;
 import decodepcode.PToolsObjectToFileMapper;
 //import decodepcode.svn.SubversionSubmitter.AuthManagerMapper;
 
-public class SubversionProcessorFactory implements ContainerProcessorFactory 
+public class SubversionProcessorFactory implements ContainerProcessorFactory
 {
 	Logger logger = Logger.getLogger(this.getClass().getName());
 	boolean ok = false;
 	SVNURL svnurl;
-	String basePath; 
-	PToolsObjectToFileMapper mapper = new DirTreePTmapper(); 
-	SubversionSubmitter.FixedAuthManagerMapper authMapper = new SubversionSubmitter.FixedAuthManagerMapper();	
-	
+	String basePath;
+	PToolsObjectToFileMapper mapper = new DirTreePTmapper();
+	SubversionSubmitter.FixedAuthManagerMapper authMapper = new SubversionSubmitter.FixedAuthManagerMapper();
+
 	public ContainerProcessor getContainerProcessor() {
 		if (!ok)
 			throw new IllegalArgumentException("Cannot instantiate SVN processor because of invalid properties");
@@ -47,10 +47,10 @@ public class SubversionProcessorFactory implements ContainerProcessorFactory
 			logger.severe("Value with content PSOFTUSER/SVNUSER/SVNPW expected for property "+ key);
 			return;
 		}
-		authMapper.addCredentials(u1[0], u1[1], u1[2]);		
+		authMapper.addCredentials(u1[0], u1[1], u1[2]);
 	}
-	
-	public void setParameters(Properties properties, String suffix) 
+
+	public void setParameters(Properties properties, String suffix)
 	{
 		String url = properties.getProperty("svnurl" + suffix);
 		if (url == null)

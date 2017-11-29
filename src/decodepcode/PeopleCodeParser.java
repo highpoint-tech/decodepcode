@@ -36,8 +36,7 @@ import java.util.logging.Logger;
 public class PeopleCodeParser {
 	static boolean debug = false;
 
-	
-	final int 
+	final int
 		SPACE_BEFORE = 0x1,
 		SPACE_AFTER = 0x2,
 		NEWLINE_BEFORE = 0x4,
@@ -69,8 +68,8 @@ public class PeopleCodeParser {
 		ELSE_STYLE = NEWLINE_BEFORE | DECREASE_INDENT | NEWLINE_AFTER | INCREASE_INDENT,
 		ENDIF_STYLE = NEWLINE_BEFORE | SPACE_BEFORE |  DECREASE_INDENT | NEWLINE_AFTER,
 		FUNCTION_STYLE= NEWLINE_BEFORE | SPACE_AFTER | INCREASE_INDENT | RESET_INDENT_BEFORE,
-		END_FUNCTION_STYLE = NEWLINE_BEFORE | RESET_INDENT_BEFORE; 
-	
+		END_FUNCTION_STYLE = NEWLINE_BEFORE | RESET_INDENT_BEFORE;
+
 	// for these references, quote the part after the period:
 	static Set<String> specialRefs = new HashSet<String>();
 	static String[] specialRefsArr = { "MenuName", "BarName", "ItemName", "Panel"};
@@ -79,13 +78,13 @@ public class PeopleCodeParser {
 		for (String s: specialRefsArr)
 			specialRefs.add(s);
 	}
-	
+
 	static Logger logger = Logger.getLogger(PeopleCodeParser.class.getName());
 	PeopleCodeContainer container;
 	Writer w;
 	public static String eol = System.getProperty("line.separator");
 	static int nSuccess, nFailed;
-	
+
 	abstract class ElementParser
 	{
 		byte b;
@@ -103,7 +102,7 @@ public class PeopleCodeParser {
 			return true;
 		}
 	}
-	
+
 	class SimpleElementParser extends ElementParser
 	{
 		String t;
@@ -117,27 +116,30 @@ public class PeopleCodeParser {
 		{
 			this(_b, _t, SPACE_BEFORE_AND_AFTER);
 		}
+
 		@Override
-		void parse() throws IOException 
+		void parse() throws IOException
 		{
 /*			if (container.bytes[container.pos] != b)
 				throw new IllegalArgumentException("expected " + b + " at pos " + container.pos);
 */
 			w.write(t);
 //			container.pos++;
-		}		
+		}
+
 		@Override
 		byte getStartByte()
 		{
 			return b;
 		}
+
 		@Override
 		public boolean writesNonBlank()
 		{
 			return t.trim().length() > 0;
 		}
 	}
-	
+
 	abstract class StringParser extends ElementParser
 	{
 		String getString()
@@ -148,18 +150,18 @@ public class PeopleCodeParser {
 			{
 				container.pos++;		// skip 0
 				if ( bb == (byte) 10)
-					sw.write('\r');  // LF --> CRLF		    						
+					sw.write('\r');  // LF --> CRLF
 				sw.write((char) bb);
 			}
-			container.pos++;		
+			container.pos++;
 			return sw.toString();
 		}
 	}
 
 	class PureStringParser extends StringParser
 	{
-		PureStringParser( byte _b) 
-		{ 
+		PureStringParser( byte _b)
+		{
 			b = _b;
 			format = SPACE_BEFORE;
 		}
@@ -168,21 +170,22 @@ public class PeopleCodeParser {
 			this(_b);
 			format = _format;
 		}
-		
+
 		@Override
 		byte getStartByte() {
 			return b;
 		}
+
 		@Override
 		void parse() throws IOException {
-			w.write(getString());			
-		}		
+			w.write(getString());
+		}
 	}
-	
+
 	class IdentifierParser extends StringParser
 	{
-		IdentifierParser( byte _b) 
-		{ 
+		IdentifierParser( byte _b)
+		{
 			b = _b;
 			format = SPACE_BEFORE | SPACE_AFTER;
 		}
@@ -190,17 +193,19 @@ public class PeopleCodeParser {
 		byte getStartByte() {
 			return b;
 		}
+
 		@Override
 		void parse() throws IOException {
 			container.pos--; container.pos--; // current byte is zero, back up
-			w.write(getString());			
-		}		
+			w.write(getString());
+		}
 	}
-	
+
 	class EmbeddedStringParser extends PureStringParser
 	{
 		String pre, post;
-		EmbeddedStringParser( byte b, String _pre, String _post, int _format) 
+
+		EmbeddedStringParser( byte b, String _pre, String _post, int _format)
 		{
 			super(b);
 			pre = _pre;
@@ -211,25 +216,26 @@ public class PeopleCodeParser {
 		{
 			this(b, _pre, _post, SPACE_BEFORE_AND_AFTER);
 		}
+
 		@Override
-		void parse() throws IOException 
+		void parse() throws IOException
 		{
-			
+
 			int start_pos = container.pos;
 			while (container.get() != 0)
-			{	
+			{
 				container.pos++;
 			}
 			container.pos++;
 			int end_pos = container.pos;
-			
+
 			w.write(pre);
 			String s = new String(container.bytes, start_pos, (end_pos - 2) - start_pos , "UnicodeLittleUnmarked");
 			w.write(s.replace("\n","\r\n").replace("\"", "\"\""));
 			w.write(post);
-		}				
+		}
 	}
-	
+
 	class CommentParser extends ElementParser
 	{
 		public CommentParser( byte _b) {
@@ -237,11 +243,13 @@ public class PeopleCodeParser {
 					NEWLINE_BEFORE_AND_AFTER
 			);
 		}
+
 		public CommentParser( byte _b, int _format)
 		{
 			b = _b;
 			format = _format;
 		}
+
 		@Override
 		byte getStartByte() {
 			return b;
@@ -259,24 +267,27 @@ public class PeopleCodeParser {
 		    );
 		    container.pos += comment_length;
 //		    logger.info("comment='" + sw.toString() + "'");
-		}		
+		}
+
 		@Override
 		public boolean writesNonBlank()
 		{
 			return true;
-		}		
+		}
 	}
-	
+
 	class ReferenceParser extends ElementParser
 	{
 		public ReferenceParser( byte _b) {
 			b = _b;
 			format= SPACE_BEFORE_AND_AFTER;
 		}
+
 		@Override
 		byte getStartByte() {
 			return b;
 		}
+
 		@Override
 		void parse() throws IOException {
 			int b1 = (int) (container.get() & 0xff);
@@ -300,26 +311,28 @@ public class PeopleCodeParser {
 				}
 				w.write(ref);
 			}
-		}		
+		}
 	}
-	
+
 	class NumberParser extends ElementParser
 	{
 		int nBytes;
-		public NumberParser( byte _b, int _nBytes) 
+		public NumberParser( byte _b, int _nBytes)
 		{
 			b = _b;
 			nBytes = _nBytes;
 			format = SPACE_BEFORE | NO_SPACE_AFTER;
 		}
+
 		@Override
-		byte getStartByte() 
+
+		byte getStartByte()
 		{
 			return b;
 		}
 
 		@Override
-		void parse() throws IOException 
+		void parse() throws IOException
 		{
 		    int     dValue          = 0;   /* decimal position from far right going left */
 		    String  out_number      = "";
@@ -329,29 +342,29 @@ public class PeopleCodeParser {
 		    dValue = (int) container.get();
 	    	long val = 0, fact = 1;
 	    	for (int i = 0; i < num_bytes; i++)
-	    	{		    		
+	    	{
 	    		val += fact * (long) (container.get() & 0xff);
 	    		fact = fact * (long) 256;
 	    	}
     		out_number = Long.toString(val);
-	    	
+
 	    	if (dValue > 0 && !"0".equals(out_number))
 	    	{
 	    			while (dValue > out_number.length())
 	    				out_number = "0" + out_number;
-	    		
+
 //	    			throw new IllegalArgumentException("Error parsing number; digits = '" + out_number + "', decimal position = " + dValue);
 //	    			out_number = "!!PARSE_ERROR!! " + out_number + "!!" + dValue + "!!";
-	    		out_number =  out_number.substring(0, out_number.length() - dValue) + "." 
+	    		out_number =  out_number.substring(0, out_number.length() - dValue) + "."
 	    					+ out_number.substring(out_number.length() - dValue);
 	    		if (out_number.startsWith("."))
 	    				out_number ="0" + out_number;
 	    	}
 		    w.write(out_number);
-		}		
-	}	
-	
-	final  ElementParser parserArray[] = 
+		}
+	}
+
+	final  ElementParser parserArray[] =
 	{
 		new IdentifierParser((byte) 0),
 		new PureStringParser((byte) 1),
@@ -417,7 +430,7 @@ public class PeopleCodeParser {
 		new SimpleElementParser((byte) 65, "", SPACE_AFTER), // 'And'-style?
 		new SimpleElementParser((byte) 66, "", PUNCTUATION), //SPACE_BEFORE | NO_SPACE_AFTER),
 		new SimpleElementParser((byte) 67, "Exit"),
-		new SimpleElementParser((byte) 68, "Local", NEWLINE_BEFORE_SPACE_AFTER),		
+		new SimpleElementParser((byte) 68, "Local", NEWLINE_BEFORE_SPACE_AFTER),
 		new SimpleElementParser((byte) 69, "Global", NEWLINE_BEFORE_SPACE_AFTER),
 		new SimpleElementParser((byte) 70, "**", PUNCTUATION),
 		new SimpleElementParser((byte) 71, "@", SPACE_BEFORE | NO_SPACE_AFTER), //, PUNCTUATION),
@@ -473,7 +486,7 @@ public class PeopleCodeParser {
 		for (ElementParser p: parserArray)
 			parsers.put(new Byte(p.getStartByte()), p);
 	}
-	
+
 	public void parse( PeopleCodeContainer _container, Writer _w) throws IOException
 	{
 		container = _container;
@@ -484,13 +497,13 @@ public class PeopleCodeParser {
 		ElementParser lastParser = null;
 		int nIndent = 0;
 		boolean startOfLine = true,
-			firstLine = true, 
+			firstLine = true,
 			and_indicator = false,
 			did_newline = false,
 			in_declare = false,
 			wroteSpace = false,
 			at_ifwhileuntil_condition = false;
-		
+
 		while (container.pos < container.bytes.length && !endDetected)
 		{
 			endDetected = container.read() == (byte) 7;
@@ -499,7 +512,7 @@ public class PeopleCodeParser {
 				logger.info("and_indicator = " + and_indicator);
 			ElementParser p = parsers.get(new Byte(code));
 			if (p == null)
-			{				
+			{
 				missing.add(new Byte(code));
 				if (code == 0)
 					logger.severe("found byte code 0- can't parse");
@@ -514,22 +527,22 @@ public class PeopleCodeParser {
 			}
 			else
 			{
-				in_declare = (in_declare 
+				in_declare = (in_declare
 						&& !((lastParser != null && (lastParser.format & NEWLINE_AFTER) > 0) || (lastParser.format == SEMICOLON))
-									// ||(!((p.format & NEWLINE_BEFORE) > 0 
+									// ||(!((p.format & NEWLINE_BEFORE) > 0
 									);
 				if (code == (byte) 28 || code == (byte) 37 || code == (byte) 40){
 					at_ifwhileuntil_condition = true;
 				} else if (code == (byte) 31 || code == (byte) 45 || code == (byte) 21){
 					at_ifwhileuntil_condition = false;
 				}
-				
-				
+
+
 				if (debug)
 					w.write("0x" + Integer.toString( container.pos, 16) + " (" + code + ")'");
-				if (lastParser != null 
+				if (lastParser != null
 					&& !in_declare
-					&& (       ((lastParser.format & INCREASE_INDENT) > 0) 
+					&& (       ((lastParser.format & INCREASE_INDENT) > 0)
 							|| ((lastParser.format & INCREASE_INDENT_ONCE) > 0 && nIndent == 0)))
 					nIndent++;
 
@@ -537,12 +550,12 @@ public class PeopleCodeParser {
 					nIndent = 0;
 				if ((p.format & DECREASE_INDENT) > 0 && nIndent > 0 && !in_declare)
 					nIndent--;
-				
-				if ( !firstLine 
+
+				if ( !firstLine
 					&& p.format != PUNCTUATION
 					&& (p.format  & SEMICOLON) == 0
-					&& !in_declare 
-					&&	(  ((lastParser != null && ((lastParser.format & NEWLINE_AFTER) > 0) 
+					&& !in_declare
+					&&	(  ((lastParser != null && ((lastParser.format & NEWLINE_AFTER) > 0)
 							|| (lastParser.format == SEMICOLON)) && (p.format & COMMENT_ON_SAME_LINE) == 0)
 						|| (((p.format & NEWLINE_BEFORE) > 0) //&& !did_newline
 							&& (lastParser.format != NEWLINE_ONCE)
@@ -561,18 +574,18 @@ public class PeopleCodeParser {
 				{
 					if (
 							(
-								!startOfLine 
+								!startOfLine
 								&& !wroteSpace
-								&& (p.format != PUNCTUATION) 
+								&& (p.format != PUNCTUATION)
 								&& (p.format != SEMICOLON)
 								&& (( (lastParser != null && (lastParser.format & SPACE_AFTER) > 0))
-									|| (p.format & SPACE_BEFORE) > 0) 
+									|| (p.format & SPACE_BEFORE) > 0)
 								&& ( lastParser == null
-										|| ( 
+										|| (
 										      (lastParser.format != PUNCTUATION  && (lastParser.format & NO_SPACE_AFTER) == 0)
-										      || ((p.format & SPACE_BEFORE2) > 0)) 
-										)					
-								&& (p.format & NO_SPACE_BEFORE) == 0 
+										      || ((p.format & SPACE_BEFORE2) > 0))
+										)
+								&& (p.format & NO_SPACE_BEFORE) == 0
 							)
 						|| (code == (byte) 75 && lastParser.b == (byte) 11)
 						)
@@ -596,322 +609,321 @@ public class PeopleCodeParser {
 				int p0 =container.pos;
 				p.parse();
 				wroteSpace = wroteSpace && !p.writesNonBlank();
-				in_declare = in_declare || (p.format & IN_DECLARE) > 0; 
+				in_declare = in_declare || (p.format & IN_DECLARE) > 0;
 				startOfLine = startOfLine && !p.writesNonBlank();
 				did_newline = did_newline && container.pos == p0;
-				and_indicator = (p.format & AND_INDICATOR) > 0 
-								|| (and_indicator && (p.format & COMMENT_ON_SAME_LINE) != 0 
+				and_indicator = (p.format & AND_INDICATOR) > 0
+								|| (and_indicator && (p.format & COMMENT_ON_SAME_LINE) != 0
 								|| (and_indicator && (code == (byte) 36))
 								);
 				lastParser = p;
 				if ((p.format & RESET_INDENT_AFTER) > 0 )
 					nIndent = 0;
-				
-				if (debug) 
+
+				if (debug)
 					w.write("'" + eol);
 			}
 		}
 		if (!missing.isEmpty())
 			logger.info("Missing: " + missing);
 	}
-	
-public void reverseEngineer(PeopleCodeContainer _container) throws IOException
-{
-//	logger.setLevel(Level.SEVERE);
-	int defects = 0;
-	container = _container;
-	String peoplecode = container.getPeopleCodeText();
-	w = new StringWriter();
-	
-	boolean endDetected = false;
-	container.pos = 37;
-	int posInPPC = 0, lastPos = -1;
-	String lastCodes = "";
-	StringWriter codeToAdd = new StringWriter();
-	try {
-		while (container.pos < container.bytes.length && !endDetected)
-		{
-			byte code = container.get();
-			endDetected = code== (byte) 7;
-			if (endDetected)
-				break;
-	
-			ElementParser p = parsers.get(new Byte(code));
-			if (p == null)
+
+	public void reverseEngineer(PeopleCodeContainer _container) throws IOException
+	{
+	//	logger.setLevel(Level.SEVERE);
+		int defects = 0;
+		container = _container;
+		String peoplecode = container.getPeopleCodeText();
+		w = new StringWriter();
+
+		boolean endDetected = false;
+		container.pos = 37;
+		int posInPPC = 0, lastPos = -1;
+		String lastCodes = "";
+		StringWriter codeToAdd = new StringWriter();
+		try {
+			while (container.pos < container.bytes.length && !endDetected)
 			{
-				lastPos = posInPPC;
-				lastCodes += new Integer( (int) code &0xff).toString() + " ";
-				defects++;
-			}
-			else
-			{
-				int startPos = container.pos;
-				p.parse();
-				String generated = w.toString().trim();
-				w = new StringWriter();
-				int previousPos = posInPPC, foundPos = -2; 
-				if (posInPPC >= 0)
+				byte code = container.get();
+				endDetected = code== (byte) 7;
+				if (endDetected)
+					break;
+
+				ElementParser p = parsers.get(new Byte(code));
+				if (p == null)
 				{
-					foundPos = peoplecode.indexOf(generated, posInPPC);
+					lastPos = posInPPC;
+					lastCodes += new Integer( (int) code &0xff).toString() + " ";
+					defects++;
+				}
+				else
+				{
+					int startPos = container.pos;
+					p.parse();
+					String generated = w.toString().trim();
+					w = new StringWriter();
+					int previousPos = posInPPC, foundPos = -2;
+					if (posInPPC >= 0)
+					{
+						foundPos = peoplecode.indexOf(generated, posInPPC);
+						if (foundPos >= 0)
+						{
+							String inbetween = peoplecode.substring(previousPos, foundPos).trim();
+							if (inbetween.length() > 0)
+							{
+								logger.info("Found '" + generated + "' at " + posInPPC + ", but after skipping '" + inbetween + "'");
+								defects++;
+							}
+							posInPPC = foundPos;
+						}
+					}
 					if (foundPos >= 0)
 					{
-						String inbetween = peoplecode.substring(previousPos, foundPos).trim();
-						if (inbetween.length() > 0)
+	//					logger.fine("Found '" + generated + "' at " + posInPPC);
+						if (lastPos >= 0)
 						{
-							logger.info("Found '" + generated + "' at " + posInPPC + ", but after skipping '" + inbetween + "'");
-							defects++;
+							if (posInPPC < lastPos)
+								throw new IllegalArgumentException("? previous = " + previousPos);
+							if (lastPos>= peoplecode.length())
+								lastPos = peoplecode.length()-1;
+							if (posInPPC>= peoplecode.length())
+								posInPPC = peoplecode.length()-1;
+	//						logger.fine("substring "+ lastPos + ".." + posInPPC);
+							String segment = peoplecode.substring(lastPos, posInPPC).trim();
+							logger.info("missing code(s) " + lastCodes + ": '" + segment + "'");
+							logger.info("Found '" + generated + "' at " + posInPPC);
+							if (lastCodes.length() < 4)
+								codeToAdd.write("new SimpleElementParser((byte) " + lastCodes + ", \"" + segment + "\"),"+ eol);
+							lastCodes = "";
+							lastPos = -1;
 						}
-						posInPPC = foundPos;
+						posInPPC += generated.length();
 					}
-				}
-				if (foundPos >= 0)
-				{
-//					logger.fine("Found '" + generated + "' at " + posInPPC);
-					if (lastPos >= 0)
+					else
 					{
-						if (posInPPC < lastPos)
-							throw new IllegalArgumentException("? previous = " + previousPos);
-						if (lastPos>= peoplecode.length())
-							lastPos = peoplecode.length()-1;
-						if (posInPPC>= peoplecode.length())
-							posInPPC = peoplecode.length()-1;
-//						logger.fine("substring "+ lastPos + ".." + posInPPC);
-						String segment = peoplecode.substring(lastPos, posInPPC).trim();
-						logger.info("missing code(s) " + lastCodes + ": '" + segment + "'");
-						logger.info("Found '" + generated + "' at " + posInPPC);
-						if (lastCodes.length() < 4)
-							codeToAdd.write("new SimpleElementParser((byte) " + lastCodes + ", \"" + segment + "\"),"+ eol);
-						lastCodes = "";
-						lastPos = -1;
+						defects++;
+						logger.severe("NOT found '" + generated + "' at pos " + hex(startPos) + " in " + container.getCompositeKey() + ", code = " + ((int) code & 0xff));
+						try {
+							int p2 = posInPPC + (generated.length() < 100? 100: generated.length() + 50);
+							if (p2 > peoplecode.length())
+								p2 = peoplecode.length() - 1;
+							if (posInPPC >  0 && posInPPC < peoplecode.length() - 1)
+								logger.severe("peoplecode = '" + peoplecode.substring(posInPPC, p2) + "'...");
+							else
+								if (posInPPC > peoplecode.length())
+									logger.severe("PosInPPC > peoplecode.length()");
+						} catch (StringIndexOutOfBoundsException ee)
+						{
+							logger.severe("PosInPPC = "+ posInPPC + ", ppc length = " + peoplecode.length());
+							ee.printStackTrace();
+						}
 					}
-					posInPPC += generated.length();
-				}
-				else
-				{
-					defects++;
-					logger.severe("NOT found '" + generated + "' at pos " + hex(startPos) + " in " + container.getCompositeKey() + ", code = " + ((int) code & 0xff));
-					try {
-						int p2 = posInPPC + (generated.length() < 100? 100: generated.length() + 50);
-						if (p2 > peoplecode.length())
-							p2 = peoplecode.length() - 1;
-						if (posInPPC >  0 && posInPPC < peoplecode.length() - 1)						
-							logger.severe("peoplecode = '" + peoplecode.substring(posInPPC, p2) + "'...");
-						else
-							if (posInPPC > peoplecode.length())
-								logger.severe("PosInPPC > peoplecode.length()");
-					} catch (StringIndexOutOfBoundsException ee)
-					{
-						logger.severe("PosInPPC = "+ posInPPC + ", ppc length = " + peoplecode.length());
-						ee.printStackTrace();
-					}
-				}
-			}	
-		}
-		if (defects > 0)
-		{
-			logger.info("" + defects + " defect(s) in " + 
-					container.getCompositeKey());
-			nFailed++;
-		}
-		else
-			nSuccess++;
-	}
-	finally
-	{
-		if (codeToAdd.toString().length() > 0)
-			System.out.println(codeToAdd.toString());
-	}	
-}
-	
-
-public static void testWithFile(File inFile) throws IOException
-{
-	testWithFile( inFile, null);
-}
-public static void testWithFile(File inFile, PeopleToolsObject obj) throws IOException 
-{
-	PeopleCodeContainer p = new PeopleCodeContainerFromFile( inFile, obj);
-	File outFile = new File( new File(inFile.getParent()), p.getCompositeKey() + ".decoded");
-	Writer w = new FileWriter(outFile);
-	logger.fine("Parsing " + inFile);
-	logger.fine("Output in " + outFile);
-	new PeopleCodeParser().parse(p, w);
-	w.close();
-}
-
-
-public static void reverseEngineerWithFile(File dir, File inFile) throws Exception
-{
-	PeopleCodeContainer p = new PeopleCodeContainerFromFile( inFile);
-	File refFile = new File(dir, p.getCompositeKey() + ".pcode");
-	if (!refFile.exists() )
-		throw new IllegalAccessException("PCode file " + refFile + " does not seem to exist");
-	logger.fine("ReverseEngineerWithFile: processing " + inFile);
-	p.readPeopleCodeTextFromFile(refFile);
-	new PeopleCodeParser().reverseEngineer(p);
-}
-
-/*
-public static void tryAllInDirectory( File dir) throws Exception
-{
-	String[] bins = dir.list(new FilenameFilter() {
-		
-		@Override
-		public boolean accept(File dir, String name) 
-		{
-			if (
-					!name.endsWith(".bin"))
-				return false;
-			File pcode = new File(dir, name.substring(0, name.length()-4) +".pcode");
-				
-			return pcode.exists();
-		}
-	});
-	logger.info("Start parsing "+ bins.length + " binary files");
-	nSuccess = 0;
-	nFailed = 0;
-	for (String bin: bins)
-	{
-		File inFile = new File(dir , bin);
-		logger.fine("======== "+ inFile);
-		try {
-			testWithFile(dir, inFile);
-			reverseEngineerWithFile(dir, inFile);
-		} catch (Exception e) 
-		{ 
-			e.printStackTrace(); 
-			logger.severe("Parsing of " + inFile + " failed; continuing");
-		}
-	}
-	logger.info("Ready; " + nSuccess + " .bins decoded successfully, " + nFailed + " with errors");	
-}
-*/
-
-private static class BinWithObject implements PeopleToolsObject
-{
-	File bin;
-	String[] keys;
-	int type;
-	BinWithObject( File _bin, String[] _keys, int _type)
-	{
-		bin = _bin;
-		keys = _keys;
-		type = _type;
-	}
-	public String[] getKeys() {
-		return keys;
-	}
-	public int getPeopleCodeType() {
-		return type;
-	}
-	public String getLastChangedBy() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	public Date getLastChangedDtTm() {
-		// TODO Auto-generated method stub
-		return null;
-	}	
-	public String getSource() { 
-		return "bin-only test object";
-	}
-	public int[] getKeyTypes() {
-		return CreateProjectDefProcessor.getObjTypesFromPCType(type, keys);
-	} 
-}
-
-static List<BinWithObject> binFiles;
-
-static void tryAllInDirectoryTree( File dir, boolean reverseEngineer)
-{
-	binFiles = new ArrayList<BinWithObject>();
-	keysArr = new ArrayList<String>();
-	nSuccess = 0;
-	nFailed = 0;
-	binsInDir(dir);
-	for (BinWithObject f: binFiles)
-		try {
-			testWithFile(f.bin, f);
-			if (reverseEngineer)
-			{
-				File refFile = new File(f.bin.getParent(), f.bin.getName().replace(".bin", ".pcode"));
-				if (!refFile.exists() )
-					logger.severe("PCode file " + refFile + " does not seem to exist");
-				else
-				{
-					logger.fine("ReverseEngineerWithFile: processing " + f.bin);
-					PeopleCodeContainer p = new PeopleCodeContainerFromFile(f.bin, f);
-					p.readPeopleCodeTextFromFile(refFile);
-					new PeopleCodeParser().reverseEngineer(p);
 				}
 			}
-		} catch (IOException e) {
-			logger.severe("Error parsing " + f + ": " + e);
+			if (defects > 0)
+			{
+				logger.info("" + defects + " defect(s) in " +
+						container.getCompositeKey());
+				nFailed++;
+			}
+			else
+				nSuccess++;
 		}
-	logger.info("Ready; "+ (nSuccess + nFailed) + " peoplecode blocks processed; " + nFailed + " with error(s)");
-}
-static 	ArrayList<String> keysArr = null;
-static int type = -1;
-
-static void binsInDir(File dir)
-{
-	int t = JDBCPeopleCodeContainer.objectTypeFromString(dir.getName());
-	if (t > 0)
-		type = t;
-	else
-		keysArr.add(dir.getName());
-	String[] bins = dir.list(new FilenameFilter() {		
-		public boolean accept(File dir, String name) 
+		finally
 		{
-			if (!name.endsWith(".bin"))
-				return false;
-			File pcode = new File(dir, name.substring(0, name.length()-4) +".pcode");
-				
-			return pcode.exists();
+			if (codeToAdd.toString().length() > 0)
+				System.out.println(codeToAdd.toString());
 		}
-	});	
-	for (String bin: bins)
-	{
-		String[] keys = new String[keysArr.size()];
-		for (int i = 1; i < keysArr.size(); i++)
-			keys[i-1] = keysArr.get(i);
-		keys[keys.length-1] = bin.substring(0, bin.length()-4);
-		binFiles.add(new BinWithObject(new File(dir, bin), keys, type));
 	}
-	String[] dirs = dir.list(new FilenameFilter() {		
-		public boolean accept(File dir, String name) {
-			return new File(dir, name).isDirectory();
-		}
-	});
-	for (String subdir: dirs)
-		binsInDir( new File(dir, subdir));
-	if (t < 0)
-		keysArr.remove(keysArr.size()-1);
-}
 
 
+	public static void testWithFile(File inFile) throws IOException
+	{
+		testWithFile( inFile, null);
+	}
 
-public static void main (String[] a)
-{
-	try {
-		String project = "PPLTLS84CUR";
-		File dir = new File("C:\\projects\\sandbox\\PeopleCode\\" + project);
-		boolean all = true;
-		if (all)
-			tryAllInDirectoryTree(dir, true);
-		else
+	public static void testWithFile(File inFile, PeopleToolsObject obj) throws IOException
+	{
+		PeopleCodeContainer p = new PeopleCodeContainerFromFile( inFile, obj);
+		File outFile = new File( new File(inFile.getParent()), p.getCompositeKey() + ".decoded");
+		Writer w = new FileWriter(outFile);
+		logger.fine("Parsing " + inFile);
+		logger.fine("Output in " + outFile);
+		new PeopleCodeParser().parse(p, w);
+		w.close();
+	}
+
+	public static void reverseEngineerWithFile(File dir, File inFile) throws Exception
+	{
+		PeopleCodeContainer p = new PeopleCodeContainerFromFile( inFile);
+		File refFile = new File(dir, p.getCompositeKey() + ".pcode");
+		if (!refFile.exists() )
+			throw new IllegalAccessException("PCode file " + refFile + " does not seem to exist");
+		logger.fine("ReverseEngineerWithFile: processing " + inFile);
+		p.readPeopleCodeTextFromFile(refFile);
+		new PeopleCodeParser().reverseEngineer(p);
+	}
+
+	/*
+	public static void tryAllInDirectory( File dir) throws Exception
+	{
+		String[] bins = dir.list(new FilenameFilter() {
+
+			@Override
+			public boolean accept(File dir, String name)
+			{
+				if (
+						!name.endsWith(".bin"))
+					return false;
+				File pcode = new File(dir, name.substring(0, name.length()-4) +".pcode");
+
+				return pcode.exists();
+			}
+		});
+		logger.info("Start parsing "+ bins.length + " binary files");
+		nSuccess = 0;
+		nFailed = 0;
+		for (String bin: bins)
 		{
-			File f = new File(dir, "Record_PeopleCode-PRCSDEFN-PRCSTYPE-FieldFormula.bin");
-			reverseEngineerWithFile(dir, f);
-			testWithFile(dir);
+			File inFile = new File(dir , bin);
+			logger.fine("======== "+ inFile);
+			try {
+				testWithFile(dir, inFile);
+				reverseEngineerWithFile(dir, inFile);
+			} catch (Exception e)
+			{
+				e.printStackTrace();
+				logger.severe("Parsing of " + inFile + " failed; continuing");
+			}
 		}
-	} catch (Exception e) {
-		e.printStackTrace();
-	}	
-}
+		logger.info("Ready; " + nSuccess + " .bins decoded successfully, " + nFailed + " with errors");
+	}
+	*/
 
-static String hex(int n)
-{
-	return "0x" + Integer.toString(n, 16);
-}
+	private static class BinWithObject implements PeopleToolsObject
+	{
+		File bin;
+		String[] keys;
+		int type;
+		BinWithObject( File _bin, String[] _keys, int _type)
+		{
+			bin = _bin;
+			keys = _keys;
+			type = _type;
+		}
+		public String[] getKeys() {
+			return keys;
+		}
+		public int getPeopleCodeType() {
+			return type;
+		}
+		public String getLastChangedBy() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+		public Date getLastChangedDtTm() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+		public String getSource() {
+			return "bin-only test object";
+		}
+		public int[] getKeyTypes() {
+			return CreateProjectDefProcessor.getObjTypesFromPCType(type, keys);
+		}
+	}
+
+	static List<BinWithObject> binFiles;
+
+	static void tryAllInDirectoryTree( File dir, boolean reverseEngineer)
+	{
+		binFiles = new ArrayList<BinWithObject>();
+		keysArr = new ArrayList<String>();
+		nSuccess = 0;
+		nFailed = 0;
+		binsInDir(dir);
+		for (BinWithObject f: binFiles)
+			try {
+				testWithFile(f.bin, f);
+				if (reverseEngineer)
+				{
+					File refFile = new File(f.bin.getParent(), f.bin.getName().replace(".bin", ".pcode"));
+					if (!refFile.exists() )
+						logger.severe("PCode file " + refFile + " does not seem to exist");
+					else
+					{
+						logger.fine("ReverseEngineerWithFile: processing " + f.bin);
+						PeopleCodeContainer p = new PeopleCodeContainerFromFile(f.bin, f);
+						p.readPeopleCodeTextFromFile(refFile);
+						new PeopleCodeParser().reverseEngineer(p);
+					}
+				}
+			} catch (IOException e) {
+				logger.severe("Error parsing " + f + ": " + e);
+			}
+		logger.info("Ready; "+ (nSuccess + nFailed) + " peoplecode blocks processed; " + nFailed + " with error(s)");
+	}
+
+	static 	ArrayList<String> keysArr = null;
+	static int type = -1;
+
+	static void binsInDir(File dir)
+	{
+		int t = JDBCPeopleCodeContainer.objectTypeFromString(dir.getName());
+		if (t > 0)
+			type = t;
+		else
+			keysArr.add(dir.getName());
+		String[] bins = dir.list(new FilenameFilter() {
+			public boolean accept(File dir, String name)
+			{
+				if (!name.endsWith(".bin"))
+					return false;
+				File pcode = new File(dir, name.substring(0, name.length()-4) +".pcode");
+
+				return pcode.exists();
+			}
+		});
+		for (String bin: bins)
+		{
+			String[] keys = new String[keysArr.size()];
+			for (int i = 1; i < keysArr.size(); i++)
+				keys[i-1] = keysArr.get(i);
+			keys[keys.length-1] = bin.substring(0, bin.length()-4);
+			binFiles.add(new BinWithObject(new File(dir, bin), keys, type));
+		}
+		String[] dirs = dir.list(new FilenameFilter() {
+			public boolean accept(File dir, String name) {
+				return new File(dir, name).isDirectory();
+			}
+		});
+		for (String subdir: dirs)
+			binsInDir( new File(dir, subdir));
+		if (t < 0)
+			keysArr.remove(keysArr.size()-1);
+	}
+
+	public static void main (String[] a)
+	{
+		try {
+			String project = "PPLTLS84CUR";
+			File dir = new File("C:\\projects\\sandbox\\PeopleCode\\" + project);
+			boolean all = true;
+			if (all)
+				tryAllInDirectoryTree(dir, true);
+			else
+			{
+				File f = new File(dir, "Record_PeopleCode-PRCSDEFN-PRCSTYPE-FieldFormula.bin");
+				reverseEngineerWithFile(dir, f);
+				testWithFile(dir);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	static String hex(int n)
+	{
+		return "0x" + Integer.toString(n, 16);
+	}
 }

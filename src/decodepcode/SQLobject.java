@@ -3,21 +3,21 @@ package decodepcode;
 import java.util.Date;
 import java.util.logging.Logger;
 
-public class SQLobject implements PeopleToolsObject 
+public class SQLobject implements PeopleToolsObject
 {
 	static Logger logger = Logger.getLogger(SQLobject.class.getName());
 	String recName, sql, lastChangedBy, source, market, dbType;
 	int sqlType;
 	Date lastChanged;
-	
-	public SQLobject( int _sqlType, String _recName, String _sql, String _lastChangedBy, Date _lastChanged, 
+
+	public SQLobject( int _sqlType, String _recName, String _sql, String _lastChangedBy, Date _lastChanged,
 					String _market, String _dbType)
 	{
 		sqlType = _sqlType; recName = _recName; sql = _sql; lastChangedBy = _lastChangedBy; lastChanged = _lastChanged;
 		market = _market; dbType = _dbType;
 	}
-	
-	public String[] getKeys() 
+
+	public String[] getKeys()
 	{
 		String[] a ;
 		if (sqlType != 1)
@@ -28,7 +28,7 @@ public class SQLobject implements PeopleToolsObject
 				{
 					a = new String[3];
 					a[2] = dbType;
-					
+
 				}
 				else
 					a = new String[2];
@@ -107,5 +107,4 @@ public class SQLobject implements PeopleToolsObject
 		// TODO Auto-generated method stub
 		return null;
 	}
-
 }
