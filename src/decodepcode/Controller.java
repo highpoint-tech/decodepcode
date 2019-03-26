@@ -18,16 +18,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.logging.Logger;
 
 import decodepcode.JDBCPeopleCodeContainer.KeySet;
@@ -65,6 +56,7 @@ public class Controller {
 	static long countPPC=0, countSQL=0, countCONT=0;
 	static boolean getContentHtml;
 	static boolean getContentImage;
+	static boolean getContentStyleSheet;
 	static boolean saveCodeInfo;
 	static String oprid = null;
 	static boolean onlyCustom = false;
@@ -80,6 +72,7 @@ public class Controller {
 			props= readProperties();
 			getContentHtml = "true".equalsIgnoreCase(props.getProperty("getContentHtml"));
 			getContentImage = "true".equalsIgnoreCase(props.getProperty("getContentImage"));
+			getContentStyleSheet = "true".equalsIgnoreCase(props.getProperty("getContentStyleSheet"));
 			saveCodeInfo = "true".equalsIgnoreCase(props.getProperty("saveCodeInfo"));
 		} catch (IOException ex)
 		{
@@ -465,7 +458,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 
 	public static void processCONTforProject(String projectName, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		if (!(getContentHtml || getContentImage)){
+		if (!(getContentHtml || getContentImage || getContentStyleSheet)){
 			return;
 		}
 
@@ -502,14 +495,21 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			return;
 		}
 
-		q.append("  join " + dbowner + "PSPROJECTITEM pi on c.CONTNAME = pi.OBJECTVALUE1 and to_char(c.CONTTYPE) = pi.OBJECTVALUE2 and pi.OBJECTID1 in (90, 91) and pi.PROJECTNAME='" + projectName + "' ");
+		q.append(" join ").append(dbowner).append("PSPROJECTITEM pi ");
+		q.append(" on c.CONTNAME = pi.OBJECTVALUE1 ");
+		q.append(" and (to_char(c.CONTTYPE) = pi.OBJECTVALUE2 or pi.OBJECTVALUE2 = ' ') ");
+		q.append(" and pi.OBJECTID1 in (90, 91, 94) ");
+		q.append(" and pi.PROJECTNAME='").append(projectName).append("' ");
 
-		if (getContentHtml && getContentImage){
-			q.append(" where c.CONTTYPE in (1,4) ");
-		} else if (getContentHtml) {
-			q.append(" where c.CONTTYPE = 4 ");
-		} else if (getContentImage) {
-			q.append(" where c.CONTTYPE = 1 ");
+		List<Integer> types = new ArrayList<>();
+
+		if (getContentImage) types.add(1);
+		if (getContentHtml) types.add(4);
+		if (getContentStyleSheet) types.add(9);
+
+		if (types.size() > 0) {
+			String inList = Arrays.toString(types.toArray()).replaceAll("[\\[\\]]", "");
+			q.append(" where c.CONTTYPE in (").append(inList).append(") ");
 		}
 
 		if (contdataConvention == CONT_DB_CONV_845)
@@ -528,7 +528,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	}
 
 	/**
-	 * Get content (HTML, Images) from PSCONTDEFN table - since date
+	 * Get content (HTML, Images, StyleSheets) from PSCONTDEFN table - since date
 	 * @param date
 	 * @param processors
 	 * @throws ClassNotFoundException
@@ -537,7 +537,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	 */
 	public static void processCONTsinceDate(java.sql.Timestamp date, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		if (!(getContentHtml || getContentImage)){
+		if (!(getContentHtml || getContentImage || getContentStyleSheet)){
 			return;
 		}
 
@@ -586,12 +586,15 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			if (onlyCustom)
 				q.append(" and c.LASTUPDOPRID <> 'PPLSOFT' ");
 
-			if (getContentHtml && getContentImage){
-				q.append(" and c.CONTTYPE in (1,4) ");
-			} else if (getContentHtml) {
-				q.append(" and c.CONTTYPE = 4 ");
-			} else if (getContentImage) {
-				q.append(" and c.CONTTYPE = 1 ");
+			List<Integer> types = new ArrayList<>();
+
+			if (getContentImage) types.add(1);
+			if (getContentHtml) types.add(4);
+			if (getContentStyleSheet) types.add(9);
+
+			if (types.size() > 0) {
+				String inList = Arrays.toString(types.toArray()).replaceAll("[\\[\\]]", "");
+				q.append(" and c.CONTTYPE in (").append(inList).append(") ");
 			}
 
 			if (contdataConvention == CONT_DB_CONV_845)
@@ -610,7 +613,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	}
 
 	/**
-	 * Get content (HTML, Images) from PSCONTDEFN table - custom
+	 * Get content (HTML, Images, StyleSheets) from PSCONTDEFN table - custom
 	 * @param processors
 	 * @throws ClassNotFoundException
 	 * @throws SQLException
@@ -618,7 +621,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	 */
 	public static void processCustomCONTs(List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		if (!(getContentHtml || getContentImage)){
+		if (!(getContentHtml || getContentImage || getContentStyleSheet)){
 			return;
 		}
 
@@ -660,12 +663,15 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		if (oprid != null)
 			q.append(" and c.LASTUPDOPRID = '" + oprid + "'");
 
-		if (getContentHtml && getContentImage){
-			q.append(" and c.CONTTYPE in (1,4) ");
-		} else if (getContentHtml) {
-			q.append(" and c.CONTTYPE = 4 ");
-		} else if (getContentImage) {
-			q.append(" and c.CONTTYPE = 1 ");
+		List<Integer> types = new ArrayList<>();
+
+		if (getContentImage) types.add(1);
+		if (getContentHtml) types.add(4);
+		if (getContentStyleSheet) types.add(9);
+
+		if (types.size() > 0) {
+			String inList = Arrays.toString(types.toArray()).replaceAll("[\\[\\]]", "");
+			q.append(" and c.CONTTYPE in (").append(inList).append(") ");
 		}
 
 		if (contdataConvention == CONT_DB_CONV_845)
@@ -1032,7 +1038,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	static void writeStats()
 	{
 		String msg = "\nProcessed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)";
-		if (getContentHtml || getContentImage){
+		if (getContentHtml || getContentImage || getContentStyleSheet){
 			msg = msg + ", and " + countCONT + " Content definition(s)";
 		}
 		System.out.println(msg);

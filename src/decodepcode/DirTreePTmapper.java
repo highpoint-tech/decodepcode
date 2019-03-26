@@ -115,12 +115,22 @@ public class DirTreePTmapper implements PToolsObjectToFileMapper {
 
 	public String getPathForCONT(CONTobject contObject, boolean lastUpdateExt){
 		String path, extension;
-		if (contObject.contType == 4){
-			path = "HTML";
-			extension = lastUpdateExt ? "last_update" : "html";
-		} else { // == 1 Image
-			path = "Image";
-			extension = lastUpdateExt ? "last_update" : contObject.contFmt;
+		switch (contObject.contType) {
+			case 1:
+				path = "Image";
+				extension = lastUpdateExt ? "last_update" : contObject.contFmt;
+				break;
+			case 4:
+				path = "HTML";
+				extension = lastUpdateExt ? "last_update" : "html";
+				break;
+			case 9:
+				path = "StyleSheet";
+				extension = lastUpdateExt ? "last_update" : "css";
+				break;
+			default:
+				path = "Other";
+				extension = "";
 		}
 
 		path = "/" + path + "/" + filterFileName(contObject.contName) + "/" + filterFileName(contObject.languageCd) + "/"
