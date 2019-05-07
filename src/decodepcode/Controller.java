@@ -54,9 +54,7 @@ public class Controller {
 	static boolean writePPC = false;
 	static boolean reverseEngineer= false;
 	static long countPPC=0, countSQL=0, countCONT=0;
-	static boolean getContentHtml;
-	static boolean getContentImage;
-	static boolean getContentStyleSheet;
+	static List<Integer> contentTypes;
 	static boolean saveCodeInfo;
 	static String oprid = null;
 	static boolean onlyCustom = false;
@@ -70,10 +68,12 @@ public class Controller {
 		try
 		{
 			props= readProperties();
-			getContentHtml = "true".equalsIgnoreCase(props.getProperty("getContentHtml"));
-			getContentImage = "true".equalsIgnoreCase(props.getProperty("getContentImage"));
-			getContentStyleSheet = "true".equalsIgnoreCase(props.getProperty("getContentStyleSheet"));
 			saveCodeInfo = "true".equalsIgnoreCase(props.getProperty("saveCodeInfo"));
+
+			contentTypes = new ArrayList<>();
+			if ("true".equalsIgnoreCase(props.getProperty("getContentImage"))) contentTypes.add(1);
+			if ("true".equalsIgnoreCase(props.getProperty("getContentHtml"))) contentTypes.add(4);
+			if ("true".equalsIgnoreCase(props.getProperty("getContentStyleSheet"))) contentTypes.add(9);
 		} catch (IOException ex)
 		{
 			logger.severe("Unable to read properties : " + ex);
@@ -458,9 +458,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 
 	public static void processCONTforProject(String projectName, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		if (!(getContentHtml || getContentImage || getContentStyleSheet)){
-			return;
-		}
+		if (contentTypes.size() == 0) return;
 
 		logger.info("\n==================== Decode content ==================== ");
 		int contdataConvention = getContdataConvention(processors);
@@ -501,16 +499,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		q.append(" and pi.OBJECTID1 in (90, 91, 94) ");
 		q.append(" and pi.PROJECTNAME='").append(projectName).append("' ");
 
-		List<Integer> types = new ArrayList<>();
-
-		if (getContentImage) types.add(1);
-		if (getContentHtml) types.add(4);
-		if (getContentStyleSheet) types.add(9);
-
-		if (types.size() > 0) {
-			String inList = Arrays.toString(types.toArray()).replaceAll("[\\[\\]]", "");
-			q.append(" where c.CONTTYPE in (").append(inList).append(") ");
-		}
+		String inList = Arrays
+				.toString(contentTypes.toArray())
+				.replaceAll("[\\[\\]]", "");
+		q.append(" where c.CONTTYPE in (").append(inList).append(") ");
 
 		if (contdataConvention == CONT_DB_CONV_845)
 			q.append(" order by cont.SEQNUM asc ");
@@ -537,9 +529,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	 */
 	public static void processCONTsinceDate(java.sql.Timestamp date, List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		if (!(getContentHtml || getContentImage || getContentStyleSheet)){
-			return;
-		}
+		if (contentTypes.size() == 0) return;
 
 		logger.info("\n==================== Decode content ==================== ");
 		int contdataConvention = getContdataConvention(processors);
@@ -586,16 +576,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 			if (onlyCustom)
 				q.append(" and c.LASTUPDOPRID <> 'PPLSOFT' ");
 
-			List<Integer> types = new ArrayList<>();
-
-			if (getContentImage) types.add(1);
-			if (getContentHtml) types.add(4);
-			if (getContentStyleSheet) types.add(9);
-
-			if (types.size() > 0) {
-				String inList = Arrays.toString(types.toArray()).replaceAll("[\\[\\]]", "");
-				q.append(" and c.CONTTYPE in (").append(inList).append(") ");
-			}
+			String inList = Arrays
+					.toString(contentTypes.toArray())
+					.replaceAll("[\\[\\]]", "");
+			q.append(" and c.CONTTYPE in (").append(inList).append(") ");
 
 			if (contdataConvention == CONT_DB_CONV_845)
 				q.append(" order by cont.SEQNUM asc ");
@@ -621,9 +605,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	 */
 	public static void processCustomCONTs(List<ContainerProcessor> processors) throws ClassNotFoundException, SQLException, IOException
 	{
-		if (!(getContentHtml || getContentImage || getContentStyleSheet)){
-			return;
-		}
+		if (contentTypes.size() == 0) return;
 
 		logger.info("\n==================== Decode content ==================== ");
 		int contdataConvention = getContdataConvention(processors);
@@ -663,16 +645,10 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 		if (oprid != null)
 			q.append(" and c.LASTUPDOPRID = '" + oprid + "'");
 
-		List<Integer> types = new ArrayList<>();
-
-		if (getContentImage) types.add(1);
-		if (getContentHtml) types.add(4);
-		if (getContentStyleSheet) types.add(9);
-
-		if (types.size() > 0) {
-			String inList = Arrays.toString(types.toArray()).replaceAll("[\\[\\]]", "");
-			q.append(" and c.CONTTYPE in (").append(inList).append(") ");
-		}
+		String inList = Arrays
+				.toString(contentTypes.toArray())
+				.replaceAll("[\\[\\]]", "");
+		q.append(" and c.CONTTYPE in (").append(inList).append(") ");
 
 		if (contdataConvention == CONT_DB_CONV_845)
 			q.append(" order by cont.SEQNUM asc ");
@@ -1038,7 +1014,7 @@ from PSSQLDEFN d, PSSQLTEXTDEFN td where d.SQLID=td.SQLID
 	static void writeStats()
 	{
 		String msg = "\nProcessed "+ countPPC + " PeopleCode segment(s), and " + countSQL + " SQL definition(s)";
-		if (getContentHtml || getContentImage || getContentStyleSheet){
+		if (contentTypes.size() > 0){
 			msg = msg + ", and " + countCONT + " Content definition(s)";
 		}
 		System.out.println(msg);
